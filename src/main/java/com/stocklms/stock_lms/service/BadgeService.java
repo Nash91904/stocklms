@@ -3,12 +3,12 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.BadgeRequestDto;
 import com.stocklms.stock_lms.dto.BadgeResponseDto;
 import com.stocklms.stock_lms.entity.Badge;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.BadgeRepository;
 import com.stocklms.stock_lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 /**
  * Service managing user achievement badges.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BadgeService {
@@ -26,7 +27,7 @@ public class BadgeService {
 
     public BadgeResponseDto awardBadge(BadgeRequestDto dto) {
         if (!userRepository.existsById(dto.getUserId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + dto.getUserId());
+            throw new ResourceNotFoundException("User", dto.getUserId());
         }
 
         Badge badge = Badge.builder()
@@ -35,12 +36,15 @@ public class BadgeService {
                 .awardedAt(LocalDateTime.now())
                 .build();
 
-        return toResponseDto(badgeRepository.save(badge));
+        Badge saved = badgeRepository.save(badge);
+        log.info("Awarded badge '{}' to user id: {}", saved.getBadgeType(), dto.getUserId());
+        return toResponseDto(saved);
     }
 
     public List<BadgeResponseDto> getBadgesByUser(Long userId) {
+        log.info("Fetching badges for user id: {}", userId);
         if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + userId);
+            throw new ResourceNotFoundException("User", userId);
         }
 
         return badgeRepository.findByUserId(userId).stream()

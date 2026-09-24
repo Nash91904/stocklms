@@ -3,17 +3,19 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.PortfolioPatchRequestDto;
 import com.stocklms.stock_lms.dto.PortfolioResponseDto;
 import com.stocklms.stock_lms.entity.Portfolio;
+import com.stocklms.stock_lms.exception.BusinessRuleException;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.PortfolioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 
 /**
  * Service managing user investment portfolios and cash balances.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PortfolioService {
@@ -21,29 +23,34 @@ public class PortfolioService {
     private final PortfolioRepository portfolioRepository;
 
     public PortfolioResponseDto getPortfolioById(Long id) {
+        log.info("Fetching portfolio with id: {}", id);
         Portfolio portfolio = portfolioRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Portfolio not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Portfolio", id));
         return toResponseDto(portfolio);
     }
 
     public PortfolioResponseDto getPortfolioByUserId(Long userId) {
+        log.info("Fetching portfolio for user id: {}", userId);
         Portfolio portfolio = portfolioRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Portfolio not found for user id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("Portfolio not found for user id: " + userId));
         return toResponseDto(portfolio);
     }
 
     public PortfolioResponseDto patchPortfolio(Long id, PortfolioPatchRequestDto dto) {
         Portfolio portfolio = portfolioRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Portfolio not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Portfolio", id));
 
         if (dto.getCashBalance() != null) {
             if (dto.getCashBalance().compareTo(BigDecimal.ZERO) < 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cash balance cannot be negative");
+                log.warn("Negative cash balance rejected for portfolio id: {}", id);
+                throw new BusinessRuleException("Cash balance cannot be negative");
             }
             portfolio.setCashBalance(dto.getCashBalance());
         }
 
-        return toResponseDto(portfolioRepository.save(portfolio));
+        Portfolio saved = portfolioRepository.save(portfolio);
+        log.info("Patched portfolio id: {}", id);
+        return toResponseDto(saved);
     }
 
     private PortfolioResponseDto toResponseDto(Portfolio portfolio) {

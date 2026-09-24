@@ -3,13 +3,13 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.QuizAttemptRequestDto;
 import com.stocklms.stock_lms.dto.QuizAttemptResponseDto;
 import com.stocklms.stock_lms.entity.QuizAttempt;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.LessonRepository;
 import com.stocklms.stock_lms.repository.QuizAttemptRepository;
 import com.stocklms.stock_lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 /**
  * Service managing user quiz submissions and scores.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuizAttemptService {
@@ -28,10 +29,10 @@ public class QuizAttemptService {
 
     public QuizAttemptResponseDto recordQuizAttempt(QuizAttemptRequestDto dto) {
         if (!userRepository.existsById(dto.getUserId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + dto.getUserId());
+            throw new ResourceNotFoundException("User", dto.getUserId());
         }
         if (!lessonRepository.existsById(dto.getLessonId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found with id: " + dto.getLessonId());
+            throw new ResourceNotFoundException("Lesson", dto.getLessonId());
         }
 
         QuizAttempt attempt = QuizAttempt.builder()
@@ -41,12 +42,15 @@ public class QuizAttemptService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        return toResponseDto(quizAttemptRepository.save(attempt));
+        QuizAttempt saved = quizAttemptRepository.save(attempt);
+        log.info("Recorded quiz attempt – user={} lesson={} score={}", dto.getUserId(), dto.getLessonId(), dto.getScore());
+        return toResponseDto(saved);
     }
 
     public List<QuizAttemptResponseDto> getQuizAttemptsByUser(Long userId) {
+        log.info("Fetching quiz attempts for user id: {}", userId);
         if (!userRepository.existsById(userId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + userId);
+            throw new ResourceNotFoundException("User", userId);
         }
 
         return quizAttemptRepository.findByUserId(userId).stream()

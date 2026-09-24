@@ -3,15 +3,16 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.StreakPatchRequestDto;
 import com.stocklms.stock_lms.dto.StreakResponseDto;
 import com.stocklms.stock_lms.entity.Streak;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.StreakRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Service managing user engagement streaks.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StreakService {
@@ -19,20 +20,22 @@ public class StreakService {
     private final StreakRepository streakRepository;
 
     public StreakResponseDto getStreakById(Long id) {
+        log.info("Fetching streak with id: {}", id);
         Streak streak = streakRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Streak not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Streak", id));
         return toResponseDto(streak);
     }
 
     public StreakResponseDto getStreakByUserId(Long userId) {
+        log.info("Fetching streak for user id: {}", userId);
         Streak streak = streakRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Streak not found for user id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("Streak not found for user id: " + userId));
         return toResponseDto(streak);
     }
 
     public StreakResponseDto patchStreak(Long id, StreakPatchRequestDto dto) {
         Streak streak = streakRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Streak not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Streak", id));
 
         if (dto.getCurrentStreak() != null) {
             streak.setCurrentStreak(dto.getCurrentStreak());
@@ -47,7 +50,9 @@ public class StreakService {
             streak.setFreezeCount(dto.getFreezeCount());
         }
 
-        return toResponseDto(streakRepository.save(streak));
+        Streak saved = streakRepository.save(streak);
+        log.info("Patched streak id: {}", id);
+        return toResponseDto(saved);
     }
 
     private StreakResponseDto toResponseDto(Streak streak) {

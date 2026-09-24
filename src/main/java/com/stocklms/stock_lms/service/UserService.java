@@ -7,15 +7,16 @@ import com.stocklms.stock_lms.dto.UserUpdateRequestDto;
 import com.stocklms.stock_lms.entity.Portfolio;
 import com.stocklms.stock_lms.entity.Streak;
 import com.stocklms.stock_lms.entity.User;
+import com.stocklms.stock_lms.exception.BusinessRuleException;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.PortfolioRepository;
 import com.stocklms.stock_lms.repository.StreakRepository;
 import com.stocklms.stock_lms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 /**
  * Service managing user accounts, password hashing, and initial portfolio/streak provisioning.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -35,14 +37,16 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public List<UserResponseDto> getAllUsers() {
+        log.info("Fetching all users");
         return userRepository.findAll().stream()
                 .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
 
     public UserResponseDto getUserById(Long id) {
+        log.info("Fetching user with id: {}", id);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
         return toResponseDto(user);
     }
 
@@ -54,10 +58,11 @@ public class UserService {
     public UserResponseDto createUser(UserCreateRequestDto dto) {
         String emailClean = dto.getEmail().trim().toLowerCase();
         if (userRepository.existsByEmail(emailClean)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User with email already exists: " + emailClean);
+            log.warn("Duplicate email registration rejected: {}", emailClean);
+            throw new BusinessRuleException("User with email already exists: " + emailClean);
         }
 
-        // Hash password with BCrypt
+        // Hash password with BCrypt (never log plain password or hash)
         String hashedPassword = passwordEncoder.encode(dto.getPassword());
 
         User user = User.builder()
@@ -70,14 +75,14 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Automatically provision starting Portfolio with 100,000 virtual cash
+        // Auto-provision starting Portfolio with 100,000 virtual cash
         Portfolio initialPortfolio = Portfolio.builder()
                 .userId(savedUser.getId())
                 .cashBalance(new BigDecimal("100000.00"))
                 .build();
         portfolioRepository.save(initialPortfolio);
 
-        // Automatically provision initial Streak tracker with all zeros
+        // Auto-provision initial Streak tracker with all zeros
         Streak initialStreak = Streak.builder()
                 .userId(savedUser.getId())
                 .currentStreak(0)
@@ -87,6 +92,7 @@ public class UserService {
                 .build();
         streakRepository.save(initialStreak);
 
+        log.info("Created user with email: {} (id={})", emailClean, savedUser.getId());
         return toResponseDto(savedUser);
     }
 
@@ -96,11 +102,12 @@ public class UserService {
     @Transactional
     public UserResponseDto updateUser(Long id, UserUpdateRequestDto dto) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
         String emailClean = dto.getEmail().trim().toLowerCase();
         if (!user.getEmail().equalsIgnoreCase(emailClean) && userRepository.existsByEmail(emailClean)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already in use: " + emailClean);
+            log.warn("Email already in use on update: {}", emailClean);
+            throw new BusinessRuleException("Email already in use: " + emailClean);
         }
 
         user.setEmail(emailClean);
@@ -110,7 +117,9 @@ public class UserService {
         user.setRiskProfile(dto.getRiskProfile() != null ? dto.getRiskProfile().trim() : null);
         user.setLiteracyScore(dto.getLiteracyScore() != null ? dto.getLiteracyScore() : 0);
 
-        return toResponseDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        log.info("Updated user id: {}", id);
+        return toResponseDto(saved);
     }
 
     /**
@@ -119,7 +128,7 @@ public class UserService {
     @Transactional
     public UserResponseDto patchUser(Long id, UserPatchRequestDto dto) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
         if (dto.getRiskProfile() != null) {
             user.setRiskProfile(dto.getRiskProfile().trim());
@@ -128,7 +137,9 @@ public class UserService {
             user.setLiteracyScore(dto.getLiteracyScore());
         }
 
-        return toResponseDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        log.info("Patched user id: {}", id);
+        return toResponseDto(saved);
     }
 
     /**
@@ -137,11 +148,12 @@ public class UserService {
     @Transactional
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id);
+            throw new ResourceNotFoundException("User", id);
         }
         portfolioRepository.findByUserId(id).ifPresent(portfolioRepository::delete);
         streakRepository.findByUserId(id).ifPresent(streakRepository::delete);
         userRepository.deleteById(id);
+        log.info("Deleted user id: {}", id);
     }
 
     public UserResponseDto toResponseDto(User user) {

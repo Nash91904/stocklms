@@ -3,12 +3,12 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.PriceHistoryRequestDto;
 import com.stocklms.stock_lms.dto.PriceHistoryResponseDto;
 import com.stocklms.stock_lms.entity.PriceHistory;
+import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.PriceHistoryRepository;
 import com.stocklms.stock_lms.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
  * Service managing historical stock price snapshots.
  * Rule: PriceHistory is immutable (insert and read only, no update or delete).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PriceHistoryService {
@@ -27,7 +28,7 @@ public class PriceHistoryService {
 
     public PriceHistoryResponseDto recordPrice(PriceHistoryRequestDto dto) {
         if (!stockRepository.existsById(dto.getStockId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stock not found with id: " + dto.getStockId());
+            throw new ResourceNotFoundException("Stock", dto.getStockId());
         }
 
         PriceHistory priceHistory = PriceHistory.builder()
@@ -37,12 +38,15 @@ public class PriceHistoryService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        return toResponseDto(priceHistoryRepository.save(priceHistory));
+        PriceHistory saved = priceHistoryRepository.save(priceHistory);
+        log.info("Recorded price {} for stock id: {}", dto.getPrice(), dto.getStockId());
+        return toResponseDto(saved);
     }
 
     public List<PriceHistoryResponseDto> getPricesByStock(Long stockId) {
+        log.info("Fetching price history for stock id: {}", stockId);
         if (!stockRepository.existsById(stockId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Stock not found with id: " + stockId);
+            throw new ResourceNotFoundException("Stock", stockId);
         }
 
         return priceHistoryRepository.findByStockIdOrderByTimestampDesc(stockId).stream()
