@@ -22,9 +22,12 @@ public class Badge {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Foreign key to User (stored as Long for Week 1)
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    // User who earned the badge (lazy loaded)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User user;
 
     // Type or identifier of badge (e.g., FIRST_TRADE, DIVERSIFIED_5, STREAK_7)
     @Column(name = "badge_type", nullable = false, length = 50)

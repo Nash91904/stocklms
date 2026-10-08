@@ -3,12 +3,14 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.PriceHistoryRequestDto;
 import com.stocklms.stock_lms.dto.PriceHistoryResponseDto;
 import com.stocklms.stock_lms.entity.PriceHistory;
+import com.stocklms.stock_lms.entity.Stock;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.PriceHistoryRepository;
 import com.stocklms.stock_lms.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,13 +28,13 @@ public class PriceHistoryService {
     private final PriceHistoryRepository priceHistoryRepository;
     private final StockRepository stockRepository;
 
+    @Transactional
     public PriceHistoryResponseDto recordPrice(PriceHistoryRequestDto dto) {
-        if (!stockRepository.existsById(dto.getStockId())) {
-            throw new ResourceNotFoundException("Stock", dto.getStockId());
-        }
+        Stock stock = stockRepository.findById(dto.getStockId())
+                .orElseThrow(() -> new ResourceNotFoundException("Stock", dto.getStockId()));
 
         PriceHistory priceHistory = PriceHistory.builder()
-                .stockId(dto.getStockId())
+                .stock(stock)
                 .price(dto.getPrice())
                 .volume(dto.getVolume())
                 .timestamp(LocalDateTime.now())
@@ -43,6 +45,7 @@ public class PriceHistoryService {
         return toResponseDto(saved);
     }
 
+    @Transactional(readOnly = true)
     public List<PriceHistoryResponseDto> getPricesByStock(Long stockId) {
         log.info("Fetching price history for stock id: {}", stockId);
         if (!stockRepository.existsById(stockId)) {
@@ -57,7 +60,7 @@ public class PriceHistoryService {
     private PriceHistoryResponseDto toResponseDto(PriceHistory priceHistory) {
         return PriceHistoryResponseDto.builder()
                 .id(priceHistory.getId())
-                .stockId(priceHistory.getStockId())
+                .stockId(priceHistory.getStock() != null ? priceHistory.getStock().getId() : null)
                 .price(priceHistory.getPrice())
                 .volume(priceHistory.getVolume())
                 .timestamp(priceHistory.getTimestamp())

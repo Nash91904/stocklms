@@ -2,10 +2,7 @@ package com.stocklms.stock_lms.service;
 
 import com.stocklms.stock_lms.dto.TradeRequestDto;
 import com.stocklms.stock_lms.dto.TradeResponseDto;
-import com.stocklms.stock_lms.entity.Portfolio;
-import com.stocklms.stock_lms.entity.PriceHistory;
-import com.stocklms.stock_lms.entity.Trade;
-import com.stocklms.stock_lms.entity.TradeType;
+import com.stocklms.stock_lms.entity.*;
 import com.stocklms.stock_lms.exception.BusinessRuleException;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.*;
@@ -42,15 +39,13 @@ public class TradeService {
      */
     @Transactional
     public TradeResponseDto executeTrade(TradeRequestDto dto) {
-        // Validate user exists
-        if (!userRepository.existsById(dto.getUserId())) {
-            throw new ResourceNotFoundException("User", dto.getUserId());
-        }
+        // Validate and fetch user
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", dto.getUserId()));
 
-        // Validate stock exists
-        if (!stockRepository.existsById(dto.getStockId())) {
-            throw new ResourceNotFoundException("Stock", dto.getStockId());
-        }
+        // Validate and fetch stock
+        Stock stock = stockRepository.findById(dto.getStockId())
+                .orElseThrow(() -> new ResourceNotFoundException("Stock", dto.getStockId()));
 
         // Fetch latest price snapshot for this stock
         List<PriceHistory> prices = priceHistoryRepository.findByStockIdOrderByTimestampDesc(dto.getStockId());
@@ -104,10 +99,10 @@ public class TradeService {
         // Save updated portfolio cash balance
         portfolioRepository.save(portfolio);
 
-        // Record immutable trade in ledger
+        // Record immutable trade in ledger with mapped User and Stock entities
         Trade trade = Trade.builder()
-                .userId(dto.getUserId())
-                .stockId(dto.getStockId())
+                .user(user)
+                .stock(stock)
                 .type(dto.getType())
                 .quantity(dto.getQuantity())
                 .price(currentPrice)
@@ -120,6 +115,7 @@ public class TradeService {
         return toResponseDto(saved);
     }
 
+    @Transactional(readOnly = true)
     public TradeResponseDto getTradeById(Long id) {
         log.info("Fetching trade with id: {}", id);
         Trade trade = tradeRepository.findById(id)
@@ -127,6 +123,7 @@ public class TradeService {
         return toResponseDto(trade);
     }
 
+    @Transactional(readOnly = true)
     public List<TradeResponseDto> getTradesByUserId(Long userId) {
         log.info("Fetching trades for user id: {}", userId);
         if (!userRepository.existsById(userId)) {
@@ -140,8 +137,8 @@ public class TradeService {
     private TradeResponseDto toResponseDto(Trade trade) {
         return TradeResponseDto.builder()
                 .id(trade.getId())
-                .userId(trade.getUserId())
-                .stockId(trade.getStockId())
+                .userId(trade.getUser() != null ? trade.getUser().getId() : null)
+                .stockId(trade.getStock() != null ? trade.getStock().getId() : null)
                 .type(trade.getType())
                 .quantity(trade.getQuantity())
                 .price(trade.getPrice())

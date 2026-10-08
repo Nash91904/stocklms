@@ -23,9 +23,12 @@ public class Streak {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Foreign key to User (one streak tracker per user, stored as Long for Week 1)
-    @Column(name = "user_id", nullable = false, unique = true)
-    private Long userId;
+    // Owning side of One-to-One relationship with User (lazy loaded)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User user;
 
     // Current consecutive days of activity
     @Column(name = "current_streak", nullable = false)

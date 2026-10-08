@@ -9,6 +9,7 @@ import com.stocklms.stock_lms.repository.PortfolioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -22,6 +23,7 @@ public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
 
+    @Transactional(readOnly = true)
     public PortfolioResponseDto getPortfolioById(Long id) {
         log.info("Fetching portfolio with id: {}", id);
         Portfolio portfolio = portfolioRepository.findById(id)
@@ -29,6 +31,7 @@ public class PortfolioService {
         return toResponseDto(portfolio);
     }
 
+    @Transactional(readOnly = true)
     public PortfolioResponseDto getPortfolioByUserId(Long userId) {
         log.info("Fetching portfolio for user id: {}", userId);
         Portfolio portfolio = portfolioRepository.findByUserId(userId)
@@ -36,6 +39,7 @@ public class PortfolioService {
         return toResponseDto(portfolio);
     }
 
+    @Transactional
     public PortfolioResponseDto patchPortfolio(Long id, PortfolioPatchRequestDto dto) {
         Portfolio portfolio = portfolioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Portfolio", id));
@@ -56,7 +60,7 @@ public class PortfolioService {
     private PortfolioResponseDto toResponseDto(Portfolio portfolio) {
         return PortfolioResponseDto.builder()
                 .id(portfolio.getId())
-                .userId(portfolio.getUserId())
+                .userId(portfolio.getUser() != null ? portfolio.getUser().getId() : null)
                 .cashBalance(portfolio.getCashBalance())
                 .build();
     }

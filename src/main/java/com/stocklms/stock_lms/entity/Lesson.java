@@ -3,6 +3,9 @@ package com.stocklms.stock_lms.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Educational module/lesson in the Learning Management System (LMS).
  */
@@ -31,4 +34,11 @@ public class Lesson {
     // Condition required to unlock this lesson (e.g. MIN_LITERACY_30, PRE_REQ_LESSON_1)
     @Column(name = "unlock_condition", length = 100)
     private String unlockCondition;
+
+    // Quiz attempts associated with this lesson
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<QuizAttempt> quizAttempts = new ArrayList<>();
 }

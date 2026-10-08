@@ -8,6 +8,7 @@ import com.stocklms.stock_lms.repository.StreakRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service managing user engagement streaks.
@@ -19,6 +20,7 @@ public class StreakService {
 
     private final StreakRepository streakRepository;
 
+    @Transactional(readOnly = true)
     public StreakResponseDto getStreakById(Long id) {
         log.info("Fetching streak with id: {}", id);
         Streak streak = streakRepository.findById(id)
@@ -26,6 +28,7 @@ public class StreakService {
         return toResponseDto(streak);
     }
 
+    @Transactional(readOnly = true)
     public StreakResponseDto getStreakByUserId(Long userId) {
         log.info("Fetching streak for user id: {}", userId);
         Streak streak = streakRepository.findByUserId(userId)
@@ -33,6 +36,7 @@ public class StreakService {
         return toResponseDto(streak);
     }
 
+    @Transactional
     public StreakResponseDto patchStreak(Long id, StreakPatchRequestDto dto) {
         Streak streak = streakRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Streak", id));
@@ -58,7 +62,7 @@ public class StreakService {
     private StreakResponseDto toResponseDto(Streak streak) {
         return StreakResponseDto.builder()
                 .id(streak.getId())
-                .userId(streak.getUserId())
+                .userId(streak.getUser() != null ? streak.getUser().getId() : null)
                 .currentStreak(streak.getCurrentStreak())
                 .longestStreak(streak.getLongestStreak())
                 .lastActiveDate(streak.getLastActiveDate())

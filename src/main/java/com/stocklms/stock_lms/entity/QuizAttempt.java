@@ -22,13 +22,19 @@ public class QuizAttempt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Foreign key to User (stored as Long for Week 1)
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    // User who attempted the quiz (lazy loaded)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User user;
 
-    // Foreign key to Lesson (stored as Long for Week 1)
-    @Column(name = "lesson_id", nullable = false)
-    private Long lessonId;
+    // Lesson the quiz belongs to (lazy loaded)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lesson_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Lesson lesson;
 
     // Score achieved on the quiz (e.g. 0 to 100)
     @Column(nullable = false)

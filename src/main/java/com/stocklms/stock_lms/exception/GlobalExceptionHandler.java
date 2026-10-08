@@ -45,6 +45,18 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    // ── 409 Conflict ──────────────────────────────────────────────────────────
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
+        log.warn("Conflict: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setType(URI.create("urn:stocklms:error:conflict"));
+        pd.setTitle("Conflict");
+        pd.setDetail(ex.getMessage());
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     // ── 400 Validation errors (@Valid on request bodies) ────────────────────
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {

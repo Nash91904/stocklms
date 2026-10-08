@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Represents a registered user in the system.
@@ -42,6 +46,51 @@ public class User {
     // Timestamp when the account was registered
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // One-to-One inverse side to Portfolio (cascaded, lazy loaded)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Portfolio portfolio;
+
+    // One-to-One inverse side to Streak (cascaded, lazy loaded)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Streak streak;
+
+    // Immutable trade audit records (no cascade delete because trades are immutable)
+    @OneToMany(mappedBy = "user")
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Trade> trades = new ArrayList<>();
+
+    // Quiz attempts taken by the user
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<QuizAttempt> quizAttempts = new ArrayList<>();
+
+    // Badges awarded to the user
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Badge> badges = new ArrayList<>();
+
+    // Many-to-Many watchlist linking User and Stock via user_watchlist join table
+    @ManyToMany
+    @JoinTable(
+            name = "user_watchlist",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "stock_id")
+    )
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Stock> watchlist = new HashSet<>();
 
     // Set createdAt automatically before saving if not provided
     @PrePersist

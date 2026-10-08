@@ -73,7 +73,7 @@ public class DataSeeder implements CommandLineRunner {
                     .build());
 
             priceHistoryRepository.save(PriceHistory.builder()
-                    .stockId(stock.getId())
+                    .stock(stock)
                     .price(s.price())
                     .volume(s.volume())
                     .timestamp(now)
@@ -129,18 +129,21 @@ public class DataSeeder implements CommandLineRunner {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        // Seed demo watchlist with AAPL if available
+        stockRepository.findByTicker("AAPL").ifPresent(aapl -> demoUser.getWatchlist().add(aapl));
+
         User savedUser = userRepository.save(demoUser);
 
         // Provision initial starting portfolio with 100,000 cash balance
         Portfolio demoPortfolio = Portfolio.builder()
-                .userId(savedUser.getId())
+                .user(savedUser)
                 .cashBalance(new BigDecimal("100000.00"))
                 .build();
         portfolioRepository.save(demoPortfolio);
 
         // Provision initial streak tracker
         Streak demoStreak = Streak.builder()
-                .userId(savedUser.getId())
+                .user(savedUser)
                 .currentStreak(0)
                 .longestStreak(0)
                 .lastActiveDate(null)
@@ -148,6 +151,6 @@ public class DataSeeder implements CommandLineRunner {
                 .build();
         streakRepository.save(demoStreak);
 
-        log.info("Successfully seeded demo user (id={}) with $100,000 portfolio and initial streak.", savedUser.getId());
+        log.info("Successfully seeded demo user (id={}) with $100,000 portfolio, streak, and watchlist.", savedUser.getId());
     }
 }

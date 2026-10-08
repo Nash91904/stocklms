@@ -18,4 +18,10 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
 
     // Retrieve trades for a specific user and stock
     List<Trade> findByUserIdAndStockIdOrderByTimestampDesc(Long userId, Long stockId);
+
+    // Check if any trades exist for a user (used to protect immutable ledger from cascading deletion)
+    boolean existsByUserId(Long userId);
+
+    // Check if any trades exist for a stock (used to protect immutable ledger from cascading deletion)
+    boolean existsByStockId(Long stockId);
 }

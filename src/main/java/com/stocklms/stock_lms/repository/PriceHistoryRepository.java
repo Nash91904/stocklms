@@ -15,4 +15,7 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
 
     // Retrieve historical price records for a stock ordered chronologically descending
     List<PriceHistory> findByStockIdOrderByTimestampDesc(Long stockId);
+
+    // Check if any price history records exist for a stock (used to protect immutable ledger)
+    boolean existsByStockId(Long stockId);
 }

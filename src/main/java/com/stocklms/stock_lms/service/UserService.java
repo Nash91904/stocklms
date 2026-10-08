@@ -1,17 +1,14 @@
 package com.stocklms.stock_lms.service;
 
-import com.stocklms.stock_lms.dto.UserCreateRequestDto;
-import com.stocklms.stock_lms.dto.UserPatchRequestDto;
-import com.stocklms.stock_lms.dto.UserResponseDto;
-import com.stocklms.stock_lms.dto.UserUpdateRequestDto;
+import com.stocklms.stock_lms.dto.*;
 import com.stocklms.stock_lms.entity.Portfolio;
+import com.stocklms.stock_lms.entity.Stock;
 import com.stocklms.stock_lms.entity.Streak;
 import com.stocklms.stock_lms.entity.User;
 import com.stocklms.stock_lms.exception.BusinessRuleException;
+import com.stocklms.stock_lms.exception.ConflictException;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
-import com.stocklms.stock_lms.repository.PortfolioRepository;
-import com.stocklms.stock_lms.repository.StreakRepository;
-import com.stocklms.stock_lms.repository.UserRepository;
+import com.stocklms.stock_lms.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,7 +21,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service managing user accounts, password hashing, and initial portfolio/streak provisioning.
+ * Service managing user accounts, password hashing, initial portfolio/streak provisioning,
+ * and watchlist operations.
  */
 @Slf4j
 @Service
@@ -34,8 +32,13 @@ public class UserService {
     private final UserRepository userRepository;
     private final PortfolioRepository portfolioRepository;
     private final StreakRepository streakRepository;
+    private final TradeRepository tradeRepository;
+    private final StockRepository stockRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final BadgeRepository badgeRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional(readOnly = true)
     public List<UserResponseDto> getAllUsers() {
         log.info("Fetching all users");
         return userRepository.findAll().stream()
@@ -43,6 +46,7 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public UserResponseDto getUserById(Long id) {
         log.info("Fetching user with id: {}", id);
         User user = userRepository.findById(id)
@@ -75,16 +79,16 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Auto-provision starting Portfolio with 100,000 virtual cash
+        // Auto-provision starting Portfolio with 100,000 virtual cash (owning side references user)
         Portfolio initialPortfolio = Portfolio.builder()
-                .userId(savedUser.getId())
+                .user(savedUser)
                 .cashBalance(new BigDecimal("100000.00"))
                 .build();
         portfolioRepository.save(initialPortfolio);
 
-        // Auto-provision initial Streak tracker with all zeros
+        // Auto-provision initial Streak tracker with all zeros (owning side references user)
         Streak initialStreak = Streak.builder()
-                .userId(savedUser.getId())
+                .user(savedUser)
                 .currentStreak(0)
                 .longestStreak(0)
                 .lastActiveDate(null)
@@ -143,17 +147,89 @@ public class UserService {
     }
 
     /**
-     * Deletes user and cleans up their associated Portfolio and Streak.
+     * Deletes user and associated data.
+     * Rule: If user has trade records in the immutable ledger, 409 Conflict is returned.
      */
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        // Check immutable trade ledger protection
+        if (tradeRepository.existsByUserId(id)) {
+            log.warn("Cannot delete user id {} with existing trades in immutable ledger", id);
+            throw new ConflictException("Cannot delete user with id " + id + " because they have existing trade records in the immutable ledger");
         }
+
+        // Clean up associated child records
         portfolioRepository.findByUserId(id).ifPresent(portfolioRepository::delete);
         streakRepository.findByUserId(id).ifPresent(streakRepository::delete);
-        userRepository.deleteById(id);
+        quizAttemptRepository.deleteAll(quizAttemptRepository.findByUserId(id));
+        badgeRepository.deleteAll(badgeRepository.findByUserId(id));
+
+        // Clear watchlist associations
+        if (user.getWatchlist() != null) {
+            user.getWatchlist().clear();
+        }
+
+        userRepository.delete(user);
         log.info("Deleted user id: {}", id);
+    }
+
+    // ── Watchlist Operations ──────────────────────────────────────────────────
+
+    /**
+     * Adds a stock to the user's watchlist.
+     */
+    @Transactional
+    public StockResponseDto addToWatchlist(Long userId, Long stockId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        Stock stock = stockRepository.findById(stockId)
+                .orElseThrow(() -> new ResourceNotFoundException("Stock", stockId));
+
+        if (user.getWatchlist().contains(stock)) {
+            log.warn("Stock id {} already in watchlist for user id {}", stockId, userId);
+            throw new ConflictException("Stock " + stock.getTicker() + " is already in the watchlist of user " + userId);
+        }
+
+        user.getWatchlist().add(stock);
+        userRepository.save(user);
+        log.info("Added stock {} to watchlist for user {}", stock.getTicker(), userId);
+        return toStockResponseDto(stock);
+    }
+
+    /**
+     * Removes a stock from the user's watchlist.
+     */
+    @Transactional
+    public void removeFromWatchlist(Long userId, Long stockId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        Stock stock = stockRepository.findById(stockId)
+                .orElseThrow(() -> new ResourceNotFoundException("Stock", stockId));
+
+        if (!user.getWatchlist().contains(stock)) {
+            log.warn("Stock id {} not in watchlist for user id {}", stockId, userId);
+            throw new ResourceNotFoundException("Stock with id " + stockId + " is not in the watchlist of user " + userId);
+        }
+
+        user.getWatchlist().remove(stock);
+        userRepository.save(user);
+        log.info("Removed stock {} from watchlist for user {}", stock.getTicker(), userId);
+    }
+
+    /**
+     * Retrieves all stocks currently in the user's watchlist.
+     */
+    @Transactional(readOnly = true)
+    public List<StockResponseDto> getWatchlist(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        return user.getWatchlist().stream()
+                .map(this::toStockResponseDto)
+                .collect(Collectors.toList());
     }
 
     public UserResponseDto toResponseDto(User user) {
@@ -163,6 +239,15 @@ public class UserService {
                 .riskProfile(user.getRiskProfile())
                 .literacyScore(user.getLiteracyScore())
                 .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private StockResponseDto toStockResponseDto(Stock stock) {
+        return StockResponseDto.builder()
+                .id(stock.getId())
+                .ticker(stock.getTicker())
+                .name(stock.getName())
+                .sector(stock.getSector())
                 .build();
     }
 }

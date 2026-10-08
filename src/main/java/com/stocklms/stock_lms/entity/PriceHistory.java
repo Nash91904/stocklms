@@ -24,9 +24,12 @@ public class PriceHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Foreign key to Stock (stored as Long for Week 1)
-    @Column(name = "stock_id", nullable = false)
-    private Long stockId;
+    // Stock associated with this price record (lazy loaded)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Stock stock;
 
     // Stock price snapshot with 2 decimal places precision
     @Column(nullable = false, precision = 12, scale = 2)
