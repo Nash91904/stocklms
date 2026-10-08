@@ -58,7 +58,7 @@ public class UserController {
     @Operation(summary = "Partial update of user (riskProfile, literacyScore)",
                responses = {@ApiResponse(responseCode = "404", description = "User not found")})
     @PatchMapping("/{id}")
-    public UserResponseDto patchUser(@PathVariable Long id, @RequestBody UserPatchRequestDto dto) {
+    public UserResponseDto patchUser(@PathVariable Long id, @Valid @RequestBody UserPatchRequestDto dto) {
         return userService.patchUser(id, dto);
     }
 

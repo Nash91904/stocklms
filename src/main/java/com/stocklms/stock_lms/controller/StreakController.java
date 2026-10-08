@@ -6,6 +6,7 @@ import com.stocklms.stock_lms.service.StreakService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,7 +38,7 @@ public class StreakController {
     @Operation(summary = "Patch a streak (currentStreak, longestStreak, lastActiveDate, freezeCount)",
                responses = {@ApiResponse(responseCode = "404", description = "Streak not found")})
     @PatchMapping("/{id}")
-    public StreakResponseDto patchStreak(@PathVariable Long id, @RequestBody StreakPatchRequestDto dto) {
+    public StreakResponseDto patchStreak(@PathVariable Long id, @Valid @RequestBody StreakPatchRequestDto dto) {
         return streakService.patchStreak(id, dto);
     }
 }

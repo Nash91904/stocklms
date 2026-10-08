@@ -1,5 +1,7 @@
 package com.stocklms.stock_lms.dto;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 /**
@@ -13,6 +15,9 @@ import lombok.*;
 @Builder
 public class UserPatchRequestDto {
 
+    @Size(max = 50, message = "Risk profile cannot exceed 50 characters")
     private String riskProfile;
+
+    @Min(value = 0, message = "Literacy score cannot be negative")
     private Integer literacyScore;
 }
