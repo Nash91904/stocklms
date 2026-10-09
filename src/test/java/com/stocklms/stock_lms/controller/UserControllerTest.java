@@ -1,8 +1,10 @@
 package com.stocklms.stock_lms.controller;
 
+import com.stocklms.stock_lms.dto.StockResponseDto;
 import com.stocklms.stock_lms.dto.UserCreateRequestDto;
 import com.stocklms.stock_lms.dto.UserPatchRequestDto;
 import com.stocklms.stock_lms.dto.UserResponseDto;
+import com.stocklms.stock_lms.exception.ConflictException;
 import com.stocklms.stock_lms.exception.GlobalExceptionHandler;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.service.UserService;
@@ -15,6 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -172,5 +175,95 @@ class UserControllerTest {
                         .content(json))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Resource Not Found"));
+    }
+
+    @Test
+    void deleteUser_success_returns204() throws Exception {
+        doNothing().when(userService).deleteUser(1L);
+
+        mockMvc.perform(delete("/api/users/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteUser_conflict_returns409() throws Exception {
+        doThrow(new ConflictException("Cannot delete user with id 1 because they have existing trade records in the immutable ledger"))
+                .when(userService).deleteUser(1L);
+
+        mockMvc.perform(delete("/api/users/1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflict"));
+    }
+
+    @Test
+    void addToWatchlist_success_returns201() throws Exception {
+        StockResponseDto stock = StockResponseDto.builder()
+                .id(10L)
+                .ticker("AAPL")
+                .name("Apple Inc.")
+                .sector("Technology")
+                .build();
+
+        when(userService.addToWatchlist(1L, 10L)).thenReturn(stock);
+
+        mockMvc.perform(post("/api/users/1/watchlist/10"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.ticker").value("AAPL"));
+    }
+
+    @Test
+    void addToWatchlist_alreadyExists_returns409() throws Exception {
+        when(userService.addToWatchlist(1L, 10L))
+                .thenThrow(new ConflictException("Stock AAPL is already in the watchlist of user 1"));
+
+        mockMvc.perform(post("/api/users/1/watchlist/10"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflict"));
+    }
+
+    @Test
+    void addToWatchlist_notFound_returns404() throws Exception {
+        when(userService.addToWatchlist(99L, 10L))
+                .thenThrow(new ResourceNotFoundException("User", 99L));
+
+        mockMvc.perform(post("/api/users/99/watchlist/10"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Resource Not Found"));
+    }
+
+    @Test
+    void removeFromWatchlist_success_returns204() throws Exception {
+        doNothing().when(userService).removeFromWatchlist(1L, 10L);
+
+        mockMvc.perform(delete("/api/users/1/watchlist/10"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void removeFromWatchlist_notFound_returns404() throws Exception {
+        doThrow(new ResourceNotFoundException("Stock with id 10 is not in the watchlist of user 1"))
+                .when(userService).removeFromWatchlist(1L, 10L);
+
+        mockMvc.perform(delete("/api/users/1/watchlist/10"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Resource Not Found"));
+    }
+
+    @Test
+    void getWatchlist_success_returns200() throws Exception {
+        StockResponseDto stock = StockResponseDto.builder()
+                .id(10L)
+                .ticker("AAPL")
+                .name("Apple Inc.")
+                .sector("Technology")
+                .build();
+
+        when(userService.getWatchlist(1L)).thenReturn(List.of(stock));
+
+        mockMvc.perform(get("/api/users/1/watchlist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].ticker").value("AAPL"));
     }
 }

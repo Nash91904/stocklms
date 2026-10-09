@@ -1,17 +1,14 @@
 package com.stocklms.stock_lms.service;
 
-import com.stocklms.stock_lms.dto.UserCreateRequestDto;
-import com.stocklms.stock_lms.dto.UserPatchRequestDto;
-import com.stocklms.stock_lms.dto.UserResponseDto;
-import com.stocklms.stock_lms.dto.UserUpdateRequestDto;
+import com.stocklms.stock_lms.dto.*;
 import com.stocklms.stock_lms.entity.Portfolio;
+import com.stocklms.stock_lms.entity.Stock;
 import com.stocklms.stock_lms.entity.Streak;
 import com.stocklms.stock_lms.entity.User;
 import com.stocklms.stock_lms.exception.BusinessRuleException;
+import com.stocklms.stock_lms.exception.ConflictException;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
-import com.stocklms.stock_lms.repository.PortfolioRepository;
-import com.stocklms.stock_lms.repository.StreakRepository;
-import com.stocklms.stock_lms.repository.UserRepository;
+import com.stocklms.stock_lms.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +18,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +35,18 @@ class UserServiceTest {
 
     @Mock
     private StreakRepository streakRepository;
+
+    @Mock
+    private TradeRepository tradeRepository;
+
+    @Mock
+    private StockRepository stockRepository;
+
+    @Mock
+    private QuizAttemptRepository quizAttemptRepository;
+
+    @Mock
+    private BadgeRepository badgeRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -58,6 +65,7 @@ class UserServiceTest {
                 .riskProfile("MODERATE")
                 .literacyScore(80)
                 .createdAt(LocalDateTime.now())
+                .watchlist(new HashSet<>())
                 .build();
     }
 
@@ -213,22 +221,105 @@ class UserServiceTest {
 
     @Test
     void deleteUser_success() {
-        when(userRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tradeRepository.existsByUserId(1L)).thenReturn(false);
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.of(Portfolio.builder().id(10L).build()));
         when(streakRepository.findByUserId(1L)).thenReturn(Optional.of(Streak.builder().id(20L).build()));
+        when(quizAttemptRepository.findByUserId(1L)).thenReturn(Collections.emptyList());
+        when(badgeRepository.findByUserId(1L)).thenReturn(Collections.emptyList());
 
         userService.deleteUser(1L);
 
         verify(portfolioRepository).delete(any(Portfolio.class));
         verify(streakRepository).delete(any(Streak.class));
-        verify(userRepository).deleteById(1L);
+        verify(userRepository).delete(user);
     }
 
     @Test
     void deleteUser_notFound_throwsResourceNotFoundException() {
-        when(userRepository.existsById(99L)).thenReturn(false);
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> userService.deleteUser(99L));
-        verify(userRepository, never()).deleteById(any());
+        verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteUser_hasExistingTrades_throwsConflictException() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tradeRepository.existsByUserId(1L)).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> userService.deleteUser(1L));
+        verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    void addToWatchlist_success() {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
+
+        StockResponseDto result = userService.addToWatchlist(1L, 10L);
+
+        assertNotNull(result);
+        assertEquals("AAPL", result.getTicker());
+        assertTrue(user.getWatchlist().contains(stock));
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void addToWatchlist_alreadyPresent_throwsConflictException() {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+        user.getWatchlist().add(stock);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
+
+        assertThrows(ConflictException.class, () -> userService.addToWatchlist(1L, 10L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void addToWatchlist_stockNotFound_throwsResourceNotFoundException() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.addToWatchlist(1L, 99L));
+    }
+
+    @Test
+    void removeFromWatchlist_success() {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+        user.getWatchlist().add(stock);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
+
+        userService.removeFromWatchlist(1L, 10L);
+
+        assertFalse(user.getWatchlist().contains(stock));
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void removeFromWatchlist_notInWatchlist_throwsResourceNotFoundException() {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.removeFromWatchlist(1L, 10L));
+    }
+
+    @Test
+    void getWatchlist_success() {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+        user.getWatchlist().add(stock);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        List<StockResponseDto> watchlist = userService.getWatchlist(1L);
+
+        assertEquals(1, watchlist.size());
+        assertEquals("AAPL", watchlist.get(0).getTicker());
     }
 }

@@ -2,17 +2,10 @@ package com.stocklms.stock_lms.service;
 
 import com.stocklms.stock_lms.dto.TradeRequestDto;
 import com.stocklms.stock_lms.dto.TradeResponseDto;
-import com.stocklms.stock_lms.entity.Portfolio;
-import com.stocklms.stock_lms.entity.PriceHistory;
-import com.stocklms.stock_lms.entity.Trade;
-import com.stocklms.stock_lms.entity.TradeType;
+import com.stocklms.stock_lms.entity.*;
 import com.stocklms.stock_lms.exception.BusinessRuleException;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
-import com.stocklms.stock_lms.repository.PortfolioRepository;
-import com.stocklms.stock_lms.repository.PriceHistoryRepository;
-import com.stocklms.stock_lms.repository.StockRepository;
-import com.stocklms.stock_lms.repository.TradeRepository;
-import com.stocklms.stock_lms.repository.UserRepository;
+import com.stocklms.stock_lms.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,20 +44,33 @@ class TradeServiceTest {
     @InjectMocks
     private TradeService tradeService;
 
+    private User testUser;
+    private Stock testStock;
     private Portfolio portfolio;
     private PriceHistory priceHistory;
 
     @BeforeEach
     void setUp() {
+        testUser = User.builder()
+                .id(1L)
+                .email("trader@example.com")
+                .build();
+
+        testStock = Stock.builder()
+                .id(10L)
+                .ticker("AAPL")
+                .name("Apple Inc.")
+                .build();
+
         portfolio = Portfolio.builder()
                 .id(1L)
-                .userId(1L)
+                .user(testUser)
                 .cashBalance(new BigDecimal("1000.00"))
                 .build();
 
         priceHistory = PriceHistory.builder()
                 .id(1L)
-                .stockId(10L)
+                .stock(testStock)
                 .price(new BigDecimal("100.00"))
                 .volume(5000L)
                 .timestamp(LocalDateTime.now())
@@ -80,8 +86,8 @@ class TradeServiceTest {
                 .quantity(5)
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(List.of(priceHistory));
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.of(portfolio));
@@ -114,16 +120,16 @@ class TradeServiceTest {
 
         Trade previousBuy = Trade.builder()
                 .id(1L)
-                .userId(1L)
-                .stockId(10L)
+                .user(testUser)
+                .stock(testStock)
                 .type(TradeType.BUY)
                 .quantity(5)
                 .price(new BigDecimal("90.00"))
                 .timestamp(LocalDateTime.now().minusDays(1))
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(List.of(priceHistory));
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.of(portfolio));
@@ -155,7 +161,7 @@ class TradeServiceTest {
                 .quantity(1)
                 .build();
 
-        when(userRepository.existsById(99L)).thenReturn(false);
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> tradeService.executeTrade(request));
         verify(tradeRepository, never()).save(any());
@@ -170,8 +176,8 @@ class TradeServiceTest {
                 .quantity(1)
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(999L)).thenReturn(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> tradeService.executeTrade(request));
         verify(tradeRepository, never()).save(any());
@@ -186,8 +192,8 @@ class TradeServiceTest {
                 .quantity(1)
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(Collections.emptyList());
 
@@ -204,8 +210,8 @@ class TradeServiceTest {
                 .quantity(1)
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(List.of(priceHistory));
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.empty());
@@ -223,8 +229,8 @@ class TradeServiceTest {
                 .quantity(15) // 15 * 100 = 1500 > 1000 cash balance
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(List.of(priceHistory));
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.of(portfolio));
@@ -247,16 +253,16 @@ class TradeServiceTest {
 
         Trade previousBuy = Trade.builder()
                 .id(1L)
-                .userId(1L)
-                .stockId(10L)
+                .user(testUser)
+                .stock(testStock)
                 .type(TradeType.BUY)
                 .quantity(4)
                 .price(new BigDecimal("90.00"))
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(stockRepository.existsById(10L)).thenReturn(true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(testStock));
         when(priceHistoryRepository.findByStockIdOrderByTimestampDesc(10L))
                 .thenReturn(List.of(priceHistory));
         when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.of(portfolio));
@@ -274,8 +280,8 @@ class TradeServiceTest {
     void getTradeById_success() {
         Trade trade = Trade.builder()
                 .id(50L)
-                .userId(1L)
-                .stockId(10L)
+                .user(testUser)
+                .stock(testStock)
                 .type(TradeType.BUY)
                 .quantity(2)
                 .price(new BigDecimal("100.00"))
@@ -301,7 +307,7 @@ class TradeServiceTest {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(tradeRepository.findByUserIdOrderByTimestampDesc(1L))
                 .thenReturn(List.of(
-                        Trade.builder().id(1L).userId(1L).stockId(10L).type(TradeType.BUY).quantity(2).price(new BigDecimal("50")).build()
+                        Trade.builder().id(1L).user(testUser).stock(testStock).type(TradeType.BUY).quantity(2).price(new BigDecimal("50")).build()
                 ));
 
         List<TradeResponseDto> result = tradeService.getTradesByUserId(1L);

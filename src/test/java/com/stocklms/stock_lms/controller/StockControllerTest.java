@@ -149,4 +149,14 @@ class StockControllerTest {
         mockMvc.perform(delete("/api/stocks/99"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void deleteStock_conflict_returns409() throws Exception {
+        doThrow(new com.stocklms.stock_lms.exception.ConflictException("Cannot delete stock with id 1 because it is referenced in immutable trade records"))
+                .when(stockService).deleteStock(1L);
+
+        mockMvc.perform(delete("/api/stocks/1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Conflict"));
+    }
 }

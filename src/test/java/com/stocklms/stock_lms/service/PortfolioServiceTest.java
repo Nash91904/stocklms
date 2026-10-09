@@ -3,6 +3,7 @@ package com.stocklms.stock_lms.service;
 import com.stocklms.stock_lms.dto.PortfolioPatchRequestDto;
 import com.stocklms.stock_lms.dto.PortfolioResponseDto;
 import com.stocklms.stock_lms.entity.Portfolio;
+import com.stocklms.stock_lms.entity.User;
 import com.stocklms.stock_lms.exception.BusinessRuleException;
 import com.stocklms.stock_lms.exception.ResourceNotFoundException;
 import com.stocklms.stock_lms.repository.PortfolioRepository;
@@ -35,7 +36,7 @@ class PortfolioServiceTest {
     void setUp() {
         portfolio = Portfolio.builder()
                 .id(1L)
-                .userId(10L)
+                .user(User.builder().id(10L).build())
                 .cashBalance(new BigDecimal("100000.00"))
                 .build();
     }
