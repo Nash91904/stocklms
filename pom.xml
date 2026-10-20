@@ -11,26 +11,20 @@
 	<groupId>com.stocklms</groupId>
 	<artifactId>stock-lms</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>war</packaging>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+	<packaging>${packaging.type}</packaging>
+	<name>Paper Trading Edutech</name>
+    <description>Paper-trading and financial learning platform (FSD project)</description>
 	<properties>
-		<java.version>21</java.version>
-	</properties>
+    <java.version>21</java.version>
+    <packaging.type>war</packaging.type>
+    <tomcat.scope>provided</tomcat.scope>
+    </properties>
 	<dependencies>
+		<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-tomcat</artifactId>
+    <scope>${tomcat.scope}</scope>
+    </dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -80,6 +74,7 @@
 	</dependencies>
 
 	<build>
+		<finalName>stocklms</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -123,5 +118,14 @@
 			</plugin>
 		</plugins>
 	</build>
+	<profiles>
+    <profile>
+        <id>jar</id>
+        <properties>
+            <packaging.type>jar</packaging.type>
+            <tomcat.scope>compile</tomcat.scope>
+        </properties>
+    </profile>
+    </profiles>
 
 </project>

@@ -18,7 +18,7 @@ public class OpenApiConfig {
     public OpenAPI stockLmsOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Stock Market Trainer & Wealth Growth LMS API")
+                        .title("Paper Trading Edutech API")
                         .description("Paper-trading and learning platform REST API. " +
                                 "Simulated money only – no real financial transactions.")
                         .version("1.0.0")
