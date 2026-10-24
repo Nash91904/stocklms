@@ -8,28 +8,37 @@
 
 ---
 
-## Core Rules & Architecture Guidelines
-1. **Beginner-Friendly Code:** Clean, simple, readable code with short explanatory comments.
-2. **Security:** No Spring Security or JWT (simplified for educational/PBL project scope; basic authentication/plain or hashed credentials).
-3. **Layered Architecture:** Base package `com.stocklms.stock_lms` with standard sub-packages:
-   - `controller`: REST endpoints
-   - `service`: Business logic with `@Transactional` boundaries
-   - `repository`: Spring Data JPA repositories with relationship traversal
-   - `entity`: Database entities with JPA relationships and lazy loading
-   - `dto`: Request and response data transfer objects (never expose or return entities directly from controllers)
-   - `exception`: Custom exceptions (`ConflictException`, `BusinessRuleException`, `ResourceNotFoundException`) and global exception handler
-   - `config`: Configuration classes (database runners, beans, seeders)
-4. **DTO Requirement:** Always use DTOs for client requests and responses; never return raw JPA entities to the client. Keep client IDs (`userId`, `stockId`, `lessonId`) as plain `Long` fields mapped to entities in services.
-5. **Data Immutability:** 
-   - `Trade` records are immutable (audit trail, no update or delete operations).
-   - `PriceHistory` records are immutable (automated market data ingestion log, no update or delete operations).
-6. **Relationships:**
-   - Formal JPA associations (`@OneToOne`, `@ManyToOne`, `@OneToMany`, `@ManyToMany` Watchlist) with `FetchType.LAZY` on all singular associations.
-   - `@ToString.Exclude` and `@EqualsAndHashCode.Exclude` on collections and associations to avoid recursion.
+## Architecture & Design (Teacher's Sample Structure)
+1. **Simplified 3-Tier Layered Architecture:**
+   Final layers: `controller -> repository -> entity`, plus `exception`, `config`, and `responsebean`.
+   The `service/` and `dto/` packages do not exist.
+2. **Direct Repository Access & Transactional Boundaries:**
+   Controllers use repositories directly via constructor injection (`@RequiredArgsConstructor`).
+   Multi-table writes and read-then-write workflows (e.g. trade execution, user create/delete, watchlist management, stock deletion) use `@Transactional` directly on the controller methods.
+3. **Entities as Request/Response Models:**
+   JPA entities are used directly as `@RequestBody` payloads and returned inside `ResponseBean.data`.
+   Bean Validation annotations (`@NotBlank`, `@Size`, `@NotNull`, etc.) reside directly on entity fields with `@Valid` on controller methods.
+4. **JSON Safety (`spring.jpa.open-in-view=false`):**
+   - No infinite recursion and no `LazyInitializationException` during serialization.
+   - `@JsonIgnore` is placed on all collection associations and inverse sides (`User.trades`, `quizAttempts`, `badges`, `watchlist`, `portfolio`, `streak`; `Stock.trades`, `priceHistory`, `usersWatching`; `Lesson.quizAttempts`).
+   - Entities with `@ManyToOne` or `@OneToOne` associations to parents (`Trade`, `Portfolio`, `Streak`, `PriceHistory`, `QuizAttempt`, `Badge`) have `@JsonProperty(access = WRITE_ONLY)` on the relationship field and expose flat read-only getters (`userId`, `stockId`, `lessonId`).
+   - `passwordHash` is annotated with `@JsonIgnore` and never serialized. User registration uses a `@Transient` write-only `password` field that is hashed by the controller using BCrypt.
+5. **Standardized ResponseBean Envelope:**
+   All endpoints return `ResponseEntity<ResponseBean>` with:
+   - `errorCode`: String HTTP status code (`"200"`, `"201"`, `"400"`, `"404"`, `"409"`, `"500"`)
+   - `errorDesc`: String message (`"Success"`, validation message, or error detail)
+   - `data`: Entity payload, list of entities, error details, or confirmation message string
+   - DELETE endpoints return HTTP 200 with confirmation message in `data`.
+6. **Data Immutability:**
+   - `Trade` records are immutable (audit trail, no update or delete endpoints).
+   - `PriceHistory` records are immutable (market price snapshot log, no update or delete endpoints).
+7. **Deletion and Conflict Protection (HTTP 409):**
+   - **User Deletion:** Rejected with 409 Conflict if the user has executed trades in the immutable ledger. Otherwise, cleans up portfolio, streak, quiz attempts, badges, and watchlist links.
+   - **Stock Deletion:** Rejected with 409 Conflict if referenced by immutable trade or price history records. Cleans up watchlist references before deletion.
 
 ---
 
-## Entity Mappings Summary (Week 4)
+## Entity Mappings Summary
 
 | Entity Pair | JPA Annotation | Owning Side | Join Column / Table | Cascade & Orphan Removal |
 |---|---|---|---|---|
@@ -47,21 +56,10 @@
 
 ---
 
-## Deletion and Conflict Rules (HTTP 409)
-
-1. **User Deletion:**
-   - Deleting a user cleans up linked `portfolio`, `streak`, `quiz_attempts`, `badges`, and clears their `user_watchlist` entries.
-   - **Conflict Protection:** If the user has trade records in the immutable `trades` ledger, deletion throws `ConflictException` (mapped to HTTP `409 Conflict`).
-2. **Stock Deletion:**
-   - Deleting a stock clears watchlist references from watching users.
-   - **Conflict Protection:** If the stock is referenced in immutable `trades` or `price_history`, deletion throws `ConflictException` (mapped to HTTP `409 Conflict`).
-
----
-
 ## Entities Overview (Primary Key: `Long id` generated)
 
 1. **User** (`users`)
-   - `id`, `email`, `passwordHash`, `riskProfile`, `literacyScore`, `createdAt`
+   - `id`, `email`, `passwordHash` (hidden), `password` (`@Transient` write-only), `riskProfile`, `literacyScore`, `createdAt`
    - `@OneToOne` `portfolio`, `streak`
    - `@OneToMany` `trades`, `quizAttempts`, `badges`
    - `@ManyToMany` `watchlist` (`Set<Stock>`)
@@ -72,32 +70,23 @@
    - `@ManyToMany(mappedBy = "watchlist")` `usersWatching` (`Set<User>`)
 
 3. **PriceHistory** (`price_history` - immutable)
-   - `id`, `stock` (`@ManyToOne`), `price`, `volume`, `timestamp`
+   - `id`, `stock` (`@ManyToOne` write-only), `stockId` (read-only getter), `price`, `volume`, `timestamp`
 
 4. **Portfolio** (`portfolios`)
-   - `id`, `user` (`@OneToOne`, unique `user_id`), `cashBalance`
+   - `id`, `user` (`@OneToOne` write-only), `userId` (read-only getter), `cashBalance`
 
 5. **Streak** (`streaks`)
-   - `id`, `user` (`@OneToOne`, unique `user_id`), `currentStreak`, `longestStreak`, `lastActiveDate`, `freezeCount`
+   - `id`, `user` (`@OneToOne` write-only), `userId` (read-only getter), `currentStreak`, `longestStreak`, `lastActiveDate`, `freezeCount`
 
 6. **Trade** (`trades` - immutable)
-   - `id`, `user` (`@ManyToOne`), `stock` (`@ManyToOne`), `type` (`BUY`/`SELL`), `quantity`, `price`, `timestamp`
+   - `id`, `user` (`@ManyToOne` write-only), `stock` (`@ManyToOne` write-only), `userId` & `stockId` (read-only getters), `type` (`BUY`/`SELL`), `quantity`, `price`, `timestamp`
 
 7. **Lesson** (`lessons`)
    - `id`, `title`, `content`, `unlockCondition`
    - `@OneToMany` `quizAttempts`
 
 8. **QuizAttempt** (`quiz_attempts`)
-   - `id`, `user` (`@ManyToOne`), `lesson` (`@ManyToOne`), `score`, `timestamp`
+   - `id`, `user` (`@ManyToOne` write-only), `lesson` (`@ManyToOne` write-only), `userId` & `lessonId` (read-only getters), `score`, `timestamp`
 
 9. **Badge** (`badges`)
-   - `id`, `user` (`@ManyToOne`), `badgeType`, `awardedAt`
-
----
-
-## Roadmap & Status
-- **Week 1 (Done):** Initial project structure, PostgreSQL database connection, 9 entities with Long IDs, DataSeeder.
-- **Week 2 (Done):** REST APIs for all entities, DTOs, CRUD operations, global exception handler.
-- **Week 3 (Done):** Paper-trading logic, portfolio valuation, cash balance validations, comprehensive tests, Swagger OpenAPI docs.
-- **Week 4 (Done):** True JPA entity mappings (`@OneToOne`, `@ManyToOne`, `@OneToMany`, `@ManyToMany` Watchlist), immutable ledger delete conflict handling (409 Conflict), Watchlist endpoints, comprehensive mapping tests (86 tests passing), production JAR build.
-- **Week 5+:** Adaptive LMS module, streak automation, quizzes, and badges.
+   - `id`, `user` (`@ManyToOne` write-only), `userId` (read-only getter), `badgeType`, `awardedAt`

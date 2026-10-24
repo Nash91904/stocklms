@@ -1,26 +1,26 @@
 package com.stocklms.stock_lms.controller;
 
-import com.stocklms.stock_lms.dto.StockResponseDto;
-import com.stocklms.stock_lms.dto.UserCreateRequestDto;
-import com.stocklms.stock_lms.dto.UserPatchRequestDto;
-import com.stocklms.stock_lms.dto.UserResponseDto;
-import com.stocklms.stock_lms.exception.ConflictException;
+import com.stocklms.stock_lms.entity.Stock;
+import com.stocklms.stock_lms.entity.User;
 import com.stocklms.stock_lms.exception.GlobalExceptionHandler;
-import com.stocklms.stock_lms.exception.ResourceNotFoundException;
-import com.stocklms.stock_lms.service.UserService;
+import com.stocklms.stock_lms.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -33,19 +33,43 @@ class UserControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private UserService userService;
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private PortfolioRepository portfolioRepository;
+
+    @MockitoBean
+    private StreakRepository streakRepository;
+
+    @MockitoBean
+    private TradeRepository tradeRepository;
+
+    @MockitoBean
+    private StockRepository stockRepository;
+
+    @MockitoBean
+    private QuizAttemptRepository quizAttemptRepository;
+
+    @MockitoBean
+    private BadgeRepository badgeRepository;
+
+    @MockitoBean
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void createUser_success_returns201() throws Exception {
-        UserResponseDto response = UserResponseDto.builder()
+        User savedUser = User.builder()
                 .id(1L)
                 .email("alex@example.com")
+                .passwordHash("hashedPass")
                 .riskProfile("MODERATE")
                 .literacyScore(50)
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(userService.createUser(any(UserCreateRequestDto.class))).thenReturn(response);
+        when(userRepository.existsByEmail("alex@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("strongPassword123")).thenReturn("hashedPass");
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
         String json = """
                 {
@@ -60,14 +84,44 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.email").value("alex@example.com"))
-                .andExpect(jsonPath("$.riskProfile").value("MODERATE"));
+                .andExpect(jsonPath("$.errorCode").value("201"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.email").value("alex@example.com"))
+                .andExpect(jsonPath("$.data.riskProfile").value("MODERATE"));
+
+        // Verify Portfolio & Streak auto-provisioning
+        verify(portfolioRepository).save(argThat(p ->
+                p.getUser() != null && p.getCashBalance().compareTo(new BigDecimal("100000.00")) == 0
+        ));
+        verify(streakRepository).save(argThat(s ->
+                s.getUser() != null && s.getCurrentStreak() == 0 && s.getLongestStreak() == 0
+        ));
+    }
+
+    @Test
+    void createUser_duplicateEmail_returns400() throws Exception {
+        when(userRepository.existsByEmail("alex@example.com")).thenReturn(true);
+
+        String json = """
+                {
+                    "email": "alex@example.com",
+                    "password": "strongPassword123"
+                }
+                """;
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("400"))
+                .andExpect(jsonPath("$.errorDesc").value("User with email already exists: alex@example.com"));
+
+        verify(userRepository, never()).save(any());
     }
 
     @Test
     void createUser_validationFailure_returns400() throws Exception {
-        // Invalid email format and password length < 6
         String invalidJson = """
                 {
                     "email": "invalid-email-format",
@@ -79,50 +133,54 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.fieldErrors.email").exists())
-                .andExpect(jsonPath("$.fieldErrors.password").exists());
+                .andExpect(jsonPath("$.errorCode").value("400"))
+                .andExpect(jsonPath("$.errorDesc").value("Validation failed"))
+                .andExpect(jsonPath("$.data.email").exists())
+                .andExpect(jsonPath("$.data.password").exists());
 
-        verify(userService, never()).createUser(any());
+        verify(userRepository, never()).save(any());
     }
 
     @Test
     void getUserById_success_returns200() throws Exception {
-        UserResponseDto response = UserResponseDto.builder()
+        User user = User.builder()
                 .id(1L)
                 .email("alex@example.com")
                 .riskProfile("MODERATE")
                 .literacyScore(50)
                 .build();
 
-        when(userService.getUserById(1L)).thenReturn(response);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(get("/api/users/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.email").value("alex@example.com"));
+                .andExpect(jsonPath("$.errorCode").value("200"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.email").value("alex@example.com"));
     }
 
     @Test
     void getUserById_notFound_returns404() throws Exception {
-        when(userService.getUserById(99L)).thenThrow(new ResourceNotFoundException("User", 99L));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/users/99"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Resource Not Found"))
-                .andExpect(jsonPath("$.detail").value("User not found with id: 99"));
+                .andExpect(jsonPath("$.errorCode").value("404"))
+                .andExpect(jsonPath("$.errorDesc").value("User not found with id: 99"));
     }
 
     @Test
     void patchUser_success_returns200() throws Exception {
-        UserResponseDto response = UserResponseDto.builder()
+        User existing = User.builder()
                 .id(1L)
                 .email("alex@example.com")
-                .riskProfile("AGGRESSIVE")
-                .literacyScore(85)
+                .riskProfile("MODERATE")
+                .literacyScore(50)
                 .build();
 
-        when(userService.patchUser(eq(1L), any(UserPatchRequestDto.class))).thenReturn(response);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
         String json = """
                 {
@@ -135,14 +193,18 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.riskProfile").value("AGGRESSIVE"))
-                .andExpect(jsonPath("$.literacyScore").value(85));
+                .andExpect(jsonPath("$.errorCode").value("200"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.riskProfile").value("AGGRESSIVE"))
+                .andExpect(jsonPath("$.data.literacyScore").value(85));
     }
 
     @Test
     void patchUser_validationFailure_returns400() throws Exception {
-        // Negative literacy score violates @Min(0)
+        User existing = User.builder().id(1L).email("alex@example.com").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+
         String invalidJson = """
                 {
                     "literacyScore": -10
@@ -153,16 +215,13 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.fieldErrors.literacyScore").exists());
-
-        verify(userService, never()).patchUser(any(), any());
+                .andExpect(jsonPath("$.errorCode").value("400"))
+                .andExpect(jsonPath("$.errorDesc").value("Literacy score cannot be negative"));
     }
 
     @Test
     void patchUser_notFound_returns404() throws Exception {
-        when(userService.patchUser(eq(99L), any(UserPatchRequestDto.class)))
-                .thenThrow(new ResourceNotFoundException("User", 99L));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         String json = """
                 {
@@ -174,96 +233,128 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Resource Not Found"));
+                .andExpect(jsonPath("$.errorCode").value("404"));
     }
 
     @Test
-    void deleteUser_success_returns204() throws Exception {
-        doNothing().when(userService).deleteUser(1L);
+    void deleteUser_success_returns200() throws Exception {
+        User user = User.builder().id(1L).email("alex@example.com").watchlist(new HashSet<>()).build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tradeRepository.existsByUserId(1L)).thenReturn(false);
+        when(portfolioRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(streakRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(quizAttemptRepository.findByUserId(1L)).thenReturn(Collections.emptyList());
+        when(badgeRepository.findByUserId(1L)).thenReturn(Collections.emptyList());
 
         mockMvc.perform(delete("/api/users/1"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errorCode").value("200"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data").value("User with ID 1 deleted successfully."));
+
+        verify(userRepository).delete(user);
     }
 
     @Test
     void deleteUser_conflict_returns409() throws Exception {
-        doThrow(new ConflictException("Cannot delete user with id 1 because they have existing trade records in the immutable ledger"))
-                .when(userService).deleteUser(1L);
+        User user = User.builder().id(1L).email("alex@example.com").build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tradeRepository.existsByUserId(1L)).thenReturn(true);
 
         mockMvc.perform(delete("/api/users/1"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Conflict"));
+                .andExpect(jsonPath("$.errorCode").value("409"))
+                .andExpect(jsonPath("$.errorDesc").value("Cannot delete user with id 1 because they have existing trade records in the immutable ledger"));
+
+        verify(userRepository, never()).delete(any());
     }
 
     @Test
     void addToWatchlist_success_returns201() throws Exception {
-        StockResponseDto stock = StockResponseDto.builder()
-                .id(10L)
-                .ticker("AAPL")
-                .name("Apple Inc.")
-                .sector("Technology")
-                .build();
+        User user = User.builder().id(1L).watchlist(new HashSet<>()).build();
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
 
-        when(userService.addToWatchlist(1L, 10L)).thenReturn(stock);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
 
         mockMvc.perform(post("/api/users/1/watchlist/10"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(10))
-                .andExpect(jsonPath("$.ticker").value("AAPL"));
+                .andExpect(jsonPath("$.errorCode").value("201"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data.id").value(10))
+                .andExpect(jsonPath("$.data.ticker").value("AAPL"));
+
+        verify(userRepository).save(user);
     }
 
     @Test
     void addToWatchlist_alreadyExists_returns409() throws Exception {
-        when(userService.addToWatchlist(1L, 10L))
-                .thenThrow(new ConflictException("Stock AAPL is already in the watchlist of user 1"));
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").build();
+        User user = User.builder().id(1L).watchlist(new HashSet<>(List.of(stock))).build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
 
         mockMvc.perform(post("/api/users/1/watchlist/10"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Conflict"));
+                .andExpect(jsonPath("$.errorCode").value("409"))
+                .andExpect(jsonPath("$.errorDesc").value("Stock AAPL is already in the watchlist of user 1"));
     }
 
     @Test
     void addToWatchlist_notFound_returns404() throws Exception {
-        when(userService.addToWatchlist(99L, 10L))
-                .thenThrow(new ResourceNotFoundException("User", 99L));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/api/users/99/watchlist/10"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Resource Not Found"));
+                .andExpect(jsonPath("$.errorCode").value("404"));
     }
 
     @Test
-    void removeFromWatchlist_success_returns204() throws Exception {
-        doNothing().when(userService).removeFromWatchlist(1L, 10L);
+    void removeFromWatchlist_success_returns200() throws Exception {
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").build();
+        User user = User.builder().id(1L).watchlist(new HashSet<>(List.of(stock))).build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
 
         mockMvc.perform(delete("/api/users/1/watchlist/10"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.errorCode").value("200"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data").value("Stock with ID 10 removed from watchlist successfully."));
+
+        verify(userRepository).save(user);
     }
 
     @Test
     void removeFromWatchlist_notFound_returns404() throws Exception {
-        doThrow(new ResourceNotFoundException("Stock with id 10 is not in the watchlist of user 1"))
-                .when(userService).removeFromWatchlist(1L, 10L);
+        User user = User.builder().id(1L).watchlist(new HashSet<>()).build();
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(stockRepository.findById(10L)).thenReturn(Optional.of(stock));
 
         mockMvc.perform(delete("/api/users/1/watchlist/10"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Resource Not Found"));
+                .andExpect(jsonPath("$.errorCode").value("404"))
+                .andExpect(jsonPath("$.errorDesc").value("Stock with id 10 is not in the watchlist of user 1"));
     }
 
     @Test
     void getWatchlist_success_returns200() throws Exception {
-        StockResponseDto stock = StockResponseDto.builder()
-                .id(10L)
-                .ticker("AAPL")
-                .name("Apple Inc.")
-                .sector("Technology")
-                .build();
+        Stock stock = Stock.builder().id(10L).ticker("AAPL").name("Apple Inc.").build();
+        User user = User.builder().id(1L).watchlist(new HashSet<>(List.of(stock))).build();
 
-        when(userService.getWatchlist(1L)).thenReturn(List.of(stock));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         mockMvc.perform(get("/api/users/1/watchlist"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(10))
-                .andExpect(jsonPath("$[0].ticker").value("AAPL"));
+                .andExpect(jsonPath("$.errorCode").value("200"))
+                .andExpect(jsonPath("$.errorDesc").value("Success"))
+                .andExpect(jsonPath("$.data[0].id").value(10))
+                .andExpect(jsonPath("$.data[0].ticker").value("AAPL"));
     }
 }

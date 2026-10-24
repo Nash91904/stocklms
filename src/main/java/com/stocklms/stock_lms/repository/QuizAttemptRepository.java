@@ -2,6 +2,8 @@ package com.stocklms.stock_lms.repository;
 
 import com.stocklms.stock_lms.entity.QuizAttempt;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,8 +15,10 @@ import java.util.List;
 public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> {
 
     // Retrieve all quiz attempts made by a specific user
-    List<QuizAttempt> findByUserId(Long userId);
+    @Query("SELECT q FROM QuizAttempt q WHERE q.user.id = :userId")
+    List<QuizAttempt> findByUserId(@Param("userId") Long userId);
 
     // Retrieve attempts by user for a specific lesson
-    List<QuizAttempt> findByUserIdAndLessonId(Long userId, Long lessonId);
+    @Query("SELECT q FROM QuizAttempt q WHERE q.user.id = :userId AND q.lesson.id = :lessonId")
+    List<QuizAttempt> findByUserIdAndLessonId(@Param("userId") Long userId, @Param("lessonId") Long lessonId);
 }
