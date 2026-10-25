@@ -28,7 +28,8 @@ import java.util.List;
 
 /**
  * REST controller for user account management, profile updates, and watchlists.
- * Directly interacts with repositories and returns standard ResponseBean wrappers.
+ * Directly interacts with repositories and returns standard ResponseBean
+ * wrappers.
  */
 @Slf4j
 @Tag(name = "Users", description = "User registration, profile management, watchlist, and account deletion")
@@ -54,8 +55,8 @@ public class UserController {
         return ResponseEntity.ok(ResponseBean.success("200", "Success", users));
     }
 
-    @Operation(summary = "Get a user by ID",
-               responses = {@ApiResponse(responseCode = "404", description = "User not found")})
+    @Operation(summary = "Get a user by ID", responses = {
+            @ApiResponse(responseCode = "404", description = "User not found") })
     @GetMapping("/{id}")
     public ResponseEntity<ResponseBean> getUserById(@PathVariable Long id) {
         log.info("Fetching user with id: {}", id);
@@ -64,9 +65,11 @@ public class UserController {
         return ResponseEntity.ok(ResponseBean.success("200", "Success", user));
     }
 
-    @Operation(summary = "Register a new user (also creates Portfolio and Streak)",
-               responses = {@ApiResponse(responseCode = "201", description = "User created"),
-                            @ApiResponse(responseCode = "400", description = "Email already in use or validation failure")})
+    @Operation(summary = "Register a new user (also creates Portfolio and Streak)", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+            {"email": "user@example.com", "password": "string", "riskProfile": "string"}
+            """))), responses = {
+            @ApiResponse(responseCode = "201", description = "User created"),
+            @ApiResponse(responseCode = "400", description = "Email already in use or validation failure") })
     @PostMapping
     @Transactional
     public ResponseEntity<ResponseBean> createUser(@Valid @RequestBody User user) {
@@ -115,10 +118,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ResponseBean.success("201", "Success", savedUser));
     }
 
-    @Operation(summary = "Full update of a user profile",
-               responses = {@ApiResponse(responseCode = "200", description = "User updated"),
-                            @ApiResponse(responseCode = "404", description = "User not found"),
-                            @ApiResponse(responseCode = "400", description = "Email already in use or validation failure")})
+    @Operation(summary = "Full update of a user profile", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+            {"email": "user@example.com", "password": "string", "riskProfile": "string", "literacyScore": 0}
+            """))), responses = {
+            @ApiResponse(responseCode = "200", description = "User updated"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "400", description = "Email already in use or validation failure") })
     @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<ResponseBean> updateUser(@PathVariable Long id, @Valid @RequestBody User user) {
@@ -144,9 +149,11 @@ public class UserController {
         return ResponseEntity.ok(ResponseBean.success("200", "Success", saved));
     }
 
-    @Operation(summary = "Partial update of user (riskProfile, literacyScore)",
-               responses = {@ApiResponse(responseCode = "200", description = "User patched"),
-                            @ApiResponse(responseCode = "404", description = "User not found")})
+    @Operation(summary = "Partial update of user (riskProfile, literacyScore)", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+            {"riskProfile": "string", "literacyScore": 0}
+            """))), responses = {
+            @ApiResponse(responseCode = "200", description = "User patched"),
+            @ApiResponse(responseCode = "404", description = "User not found") })
     @PatchMapping("/{id}")
     @Transactional
     public ResponseEntity<ResponseBean> patchUser(@PathVariable Long id, @RequestBody User user) {
@@ -169,10 +176,10 @@ public class UserController {
         return ResponseEntity.ok(ResponseBean.success("200", "Success", saved));
     }
 
-    @Operation(summary = "Delete a user and their Portfolio/Streak",
-               responses = {@ApiResponse(responseCode = "200", description = "User deleted"),
-                            @ApiResponse(responseCode = "404", description = "User not found"),
-                            @ApiResponse(responseCode = "409", description = "Cannot delete user with existing trades")})
+    @Operation(summary = "Delete a user and their Portfolio/Streak", responses = {
+            @ApiResponse(responseCode = "200", description = "User deleted"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "409", description = "Cannot delete user with existing trades") })
     @DeleteMapping("/{id}")
     @Transactional
     public ResponseEntity<ResponseBean> deleteUser(@PathVariable Long id) {
@@ -183,7 +190,8 @@ public class UserController {
         // Check immutable trade ledger protection
         if (tradeRepository.existsByUserId(id)) {
             log.warn("Cannot delete user id {} with existing trades in immutable ledger", id);
-            throw new ConflictException("Cannot delete user with id " + id + " because they have existing trade records in the immutable ledger");
+            throw new ConflictException("Cannot delete user with id " + id
+                    + " because they have existing trade records in the immutable ledger");
         }
 
         // Clean up associated child records
@@ -199,15 +207,16 @@ public class UserController {
 
         userRepository.delete(user);
         log.info("Deleted user id: {}", id);
-        return ResponseEntity.ok(ResponseBean.success("200", "Success", "User with ID " + id + " deleted successfully."));
+        return ResponseEntity
+                .ok(ResponseBean.success("200", "Success", "User with ID " + id + " deleted successfully."));
     }
 
     // ── Watchlist Endpoints ──────────────────────────────────────────────────
 
-    @Operation(summary = "Add a stock to user's watchlist",
-               responses = {@ApiResponse(responseCode = "201", description = "Stock added to watchlist"),
-                            @ApiResponse(responseCode = "404", description = "User or stock not found"),
-                            @ApiResponse(responseCode = "409", description = "Stock already in watchlist")})
+    @Operation(summary = "Add a stock to user's watchlist", responses = {
+            @ApiResponse(responseCode = "201", description = "Stock added to watchlist"),
+            @ApiResponse(responseCode = "404", description = "User or stock not found"),
+            @ApiResponse(responseCode = "409", description = "Stock already in watchlist") })
     @PostMapping("/{userId}/watchlist/{stockId}")
     @Transactional
     public ResponseEntity<ResponseBean> addToWatchlist(@PathVariable Long userId, @PathVariable Long stockId) {
@@ -219,7 +228,8 @@ public class UserController {
 
         if (user.getWatchlist().contains(stock)) {
             log.warn("Stock id {} already in watchlist for user id {}", stockId, userId);
-            throw new ConflictException("Stock " + stock.getTicker() + " is already in the watchlist of user " + userId);
+            throw new ConflictException(
+                    "Stock " + stock.getTicker() + " is already in the watchlist of user " + userId);
         }
 
         user.getWatchlist().add(stock);
@@ -228,9 +238,9 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ResponseBean.success("201", "Success", stock));
     }
 
-    @Operation(summary = "Remove a stock from user's watchlist",
-               responses = {@ApiResponse(responseCode = "200", description = "Stock removed from watchlist"),
-                            @ApiResponse(responseCode = "404", description = "User, stock, or watchlist entry not found")})
+    @Operation(summary = "Remove a stock from user's watchlist", responses = {
+            @ApiResponse(responseCode = "200", description = "Stock removed from watchlist"),
+            @ApiResponse(responseCode = "404", description = "User, stock, or watchlist entry not found") })
     @DeleteMapping("/{userId}/watchlist/{stockId}")
     @Transactional
     public ResponseEntity<ResponseBean> removeFromWatchlist(@PathVariable Long userId, @PathVariable Long stockId) {
@@ -242,19 +252,22 @@ public class UserController {
 
         if (!user.getWatchlist().contains(stock)) {
             log.warn("Stock id {} not in watchlist for user id {}", stockId, userId);
-            throw new ResourceNotFoundException("Stock with id " + stockId + " is not in the watchlist of user " + userId);
+            throw new ResourceNotFoundException(
+                    "Stock with id " + stockId + " is not in the watchlist of user " + userId);
         }
 
         user.getWatchlist().remove(stock);
         userRepository.save(user);
         log.info("Removed stock {} from watchlist for user {}", stock.getTicker(), userId);
-        return ResponseEntity.ok(ResponseBean.success("200", "Success", "Stock with ID " + stockId + " removed from watchlist successfully."));
+        return ResponseEntity.ok(ResponseBean.success("200", "Success",
+                "Stock with ID " + stockId + " removed from watchlist successfully."));
     }
 
-    @Operation(summary = "Get user's watchlist",
-               responses = {@ApiResponse(responseCode = "200", description = "Watchlist retrieved"),
-                            @ApiResponse(responseCode = "404", description = "User not found")})
+    @Operation(summary = "Get user's watchlist", responses = {
+            @ApiResponse(responseCode = "200", description = "Watchlist retrieved"),
+            @ApiResponse(responseCode = "404", description = "User not found") })
     @GetMapping("/{userId}/watchlist")
+    @Transactional(readOnly = true)
     public ResponseEntity<ResponseBean> getWatchlist(@PathVariable Long userId) {
         log.info("Fetching watchlist for user id: {}", userId);
         User user = userRepository.findById(userId)

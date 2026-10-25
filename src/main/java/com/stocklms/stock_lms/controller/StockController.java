@@ -56,6 +56,12 @@ public class StockController {
     }
 
     @Operation(summary = "Create a new stock",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"ticker": "string", "name": "string", "sector": "string"}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "201", description = "Stock created"),
                             @ApiResponse(responseCode = "400", description = "Validation or business rule failure")})
     @PostMapping

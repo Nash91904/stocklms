@@ -49,6 +49,12 @@ public class LessonController {
     }
 
     @Operation(summary = "Create a new lesson",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"title": "string", "content": "string", "unlockCondition": "MIN_LITERACY_0"}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "201", description = "Lesson created"),
                             @ApiResponse(responseCode = "400", description = "Validation failure")})
     @PostMapping

@@ -38,6 +38,12 @@ public class QuizAttemptController {
     private final BadgeRepository badgeRepository;
 
     @Operation(summary = "Record a quiz attempt",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"user": {"id": 0}, "lesson": {"id": 0}, "score": 0}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "201", description = "Quiz attempt recorded"),
                             @ApiResponse(responseCode = "400", description = "Validation error or lesson locked"),
                             @ApiResponse(responseCode = "404", description = "User or lesson not found")})

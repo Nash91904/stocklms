@@ -36,6 +36,12 @@ public class BadgeController {
     private final UserRepository userRepository;
 
     @Operation(summary = "Award a badge to a user",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"user": {"id": 0}, "badgeType": "string"}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "201", description = "Badge awarded"),
                             @ApiResponse(responseCode = "404", description = "User not found")})
     @PostMapping

@@ -37,6 +37,12 @@ public class PriceHistoryController {
     private final StockRepository stockRepository;
 
     @Operation(summary = "Record a stock price snapshot",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"stock": {"id": 0}, "price": 1, "volume": 0}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "201", description = "Price recorded"),
                             @ApiResponse(responseCode = "404", description = "Stock not found")})
     @PostMapping

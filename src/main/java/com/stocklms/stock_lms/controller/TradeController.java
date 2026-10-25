@@ -42,13 +42,15 @@ public class TradeController {
     private final BadgeRepository badgeRepository;
 
     @Operation(summary = "Execute a BUY or SELL trade",
-           requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-               content = @io.swagger.v3.oas.annotations.media.Content(
-                   mediaType = "application/json",
-                   examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
-                       {"user": {"id": 1}, "stock": {"id": 1}, "type": "BUY", "quantity": 5}
-                       """))),
-           responses = { /* keep your existing responses here */ })
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"user": {"id": 0}, "stock": {"id": 0}, "type": "BUY", "quantity": 1}
+                               """)
+               )),
+               responses = {@ApiResponse(responseCode = "201", description = "Trade executed"),
+                            @ApiResponse(responseCode = "400", description = "Insufficient balance/holdings or bad input"),
+                            @ApiResponse(responseCode = "404", description = "User or stock not found")})
     @PostMapping
     @Transactional
     public ResponseEntity<ResponseBean> executeTrade(@Valid @RequestBody Trade trade) {
