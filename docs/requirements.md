@@ -30,7 +30,7 @@ The **Stock Market Trainer & Wealth Growth LMS** is a full-stack learning platfo
 - Validates trades against sufficient purchasing power or share holdings.
 
 ### 2.4 Behavioral Inference Engine
-- Inactive in Week 1, planned for later sprints.
+- Basic version implemented (literacy score rises on a first passing quiz attempt); the full automatic risk profile is planned. See Section 6.
 - Passively evaluates trade frequency, asset allocation, and drawdowns to compute an objective risk profile.
 - Aggregates quiz performance and investment discipline into a quantitative financial literacy score.
 

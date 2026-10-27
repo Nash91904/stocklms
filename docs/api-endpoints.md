@@ -124,6 +124,7 @@ Every endpoint produces a `ResponseBean` containing:
 | **POST** | `/api/badges` | `Badge` | `201 Created` / `404` / `400` | Award an achievement badge to a user |
 | **GET** | `/api/badges/user/{userId}` | _None_ | `200 OK` / `404` | Retrieve all badges awarded to a user |
 | **GET** | `/api/badges?userId={userId}` | _None_ | `200 OK` / `400` / `404` | Retrieve badges for a user by query param (400 if `userId` is missing) |
+| **DELETE** | /api/badges/{id} | _None_ | 200 OK / 404 | Delete a badge by ID |
 
 ---
 

@@ -53,7 +53,7 @@ Nine entities (User, Portfolio, Streak, Stock, PriceHistory, Trade, Lesson, Quiz
 
 ### Prerequisites
 
-1. JDK 21
+1. JDK 21 or newer
 2. PostgreSQL running on `localhost:5432` with an empty database named `stocklms`:
    ```sql
    CREATE DATABASE stocklms;
@@ -63,11 +63,17 @@ Nine entities (User, Portfolio, Streak, Stock, PriceHistory, Trade, Lesson, Quiz
 | Variable | Default | Notes |
 |---|---|---|
 | `DB_USERNAME` | `postgres` | optional |
-| `DB_PASSWORD` | none | **required**, the application does not start without it |
+| `DB_PASSWORD` | none | **required**, the PostgreSQL password. The application does not start without it |
 
 Tables are created automatically on first start (`spring.jpa.hibernate.ddl-auto=update`). On an empty database the app also seeds 10 US stocks with a baseline price each, 3 lessons, and a demo user (`demo@stocklms.com`) with a $100,000 portfolio, a streak tracker and AAPL on the watchlist.
 
 ### Run
+
+```bat
+:: Windows (Command Prompt)
+set DB_PASSWORD=your_password
+mvnw.cmd spring-boot:run
+```
 
 ```powershell
 # Windows (PowerShell)
@@ -81,7 +87,7 @@ export DB_PASSWORD=your_password
 ./mvnw spring-boot:run
 ```
 
-The server starts on `http://localhost:8080`.
+The variable only lasts for the terminal window it was set in. The server starts on `http://localhost:8080`.
 
 ### Swagger UI
 
@@ -89,6 +95,17 @@ The server starts on `http://localhost:8080`.
 - OpenAPI JSON: http://localhost:8080/api-docs
 
 Every endpoint is documented there, and the POST, PUT and PATCH endpoints show a request example you can edit and execute.
+
+### Resetting to a clean database
+
+To go back to the original seed data (10 stocks, 3 lessons, the demo user, ids starting from 1), stop the app and run this in pgAdmin or `psql`:
+
+```sql
+DROP DATABASE stocklms;
+CREATE DATABASE stocklms;
+```
+
+On the next start the app recreates all tables and seeds the data again.
 
 ## REST API
 
@@ -105,9 +122,11 @@ All endpoints are under `/api`. Full details, status codes and sample bodies are
 | Price history | `POST /api/price-history`, `GET /api/price-history/stock/{stockId}`, `GET /api/price-history?stockId=` |
 | Trades | `POST /api/trades`, `GET /api/trades/{id}`, `GET /api/trades/user/{userId}`, `GET /api/trades?userId=` |
 | Quiz attempts | `POST /api/quiz-attempts`, `GET /api/quiz-attempts/user/{userId}`, `GET /api/quiz-attempts?userId=` |
-| Badges | `POST /api/badges`, `GET /api/badges/user/{userId}`, `GET /api/badges?userId=` |
+| Badges | `POST /api/badges`, `GET /api/badges/user/{userId}`, `GET /api/badges?userId=`, `DELETE /api/badges/{id}` |
 
-Price history and trades have no update or delete endpoints, because they are insert-only records.
+Price history and trades have no update or delete endpoints, because they are insert-only records. Portfolios and streaks are created with the user and removed together with the user.
+
+Most lists can be fetched two ways, by path (`/user/{userId}`) and by query parameter (`?userId=`). Both return the same result.
 
 ## Error handling
 
@@ -127,17 +146,17 @@ Logs go to the console and to `logs/app.log` (10 MB per file, 30 days of history
 
 ## Tests
 
-```bash
-./mvnw test
+```bat
+mvnw.cmd test
 ```
 
-Each controller has MockMvc tests with mocked repositories, and there is a test for the entity mappings. `StockLmsApplicationTests` starts the full application, so it needs the PostgreSQL database and `DB_PASSWORD` to be available.
+There are 82 tests. Each controller has MockMvc tests with mocked repositories, and there is a test for the entity mappings. `StockLmsApplicationTests` starts the full application, so it needs the PostgreSQL database and `DB_PASSWORD` to be available.
 
 ## Build a JAR or a WAR
 
-```powershell
-.\mvnw clean package -DskipTests            # executable JAR: target\stocklms.jar (default)
-.\mvnw clean package -DskipTests -Pwar      # WAR: target\stocklms.war
+```bat
+mvnw.cmd clean package -DskipTests            :: executable JAR: target\stocklms.jar (default)
+mvnw.cmd clean package -DskipTests -Pwar      :: WAR: target\stocklms.war
 ```
 
 Leave out `-DskipTests` to run the tests while packaging (needs the database).
@@ -162,8 +181,9 @@ docs/             ER diagram, requirements, API endpoints, product requirements 
 
 ## Not included yet
 
-This submission is the backend core. These parts of the wider plan in [`docs/requirements.md`](docs/requirements.md) (Section 6) are planned for later:
+This submission is the backend core. The product requirements document (`docs/stock-lms-prd.docx`) describes the full multi-semester vision, and these parts of it, listed in [`docs/requirements.md`](docs/requirements.md) (Section 6), are planned for later:
 
 - Login and JWT security. Passwords are hashed with BCrypt, but no endpoint is protected.
-- Automatic market-data ingestion. Prices are added through `POST /api/price-history`.
+- Automatic market-data ingestion from a live API, and real-time prices. Prices are added through `POST /api/price-history`.
 - Automatic risk-profile calculation, leaderboards, and applying streak freezes. The risk profile is set through the API and the freeze count is stored but not yet used.
+- A frontend.

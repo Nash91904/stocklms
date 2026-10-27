@@ -92,4 +92,18 @@ public class BadgeController {
         log.warn("Querying badges rejected: Parameter 'userId' is required");
         throw new BusinessRuleException("Parameter 'userId' is required");
     }
+    @Operation(summary = "Delete a badge by ID",
+           responses = {@ApiResponse(responseCode = "200", description = "Badge deleted"),
+                        @ApiResponse(responseCode = "404", description = "Badge not found")})
+@DeleteMapping("/{id}")
+@Transactional
+public ResponseEntity<ResponseBean> deleteBadge(@PathVariable Long id) {
+    log.info("Deleting badge with id: {}", id);
+    Badge badge = badgeRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Badge", id));
+    badgeRepository.delete(badge);
+    log.info("Deleted badge id: {}", id);
+    return ResponseEntity.ok(ResponseBean.success("200", "Success",
+            "Badge with ID " + id + " deleted successfully."));
+}
 }
