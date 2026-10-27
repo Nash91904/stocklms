@@ -47,6 +47,12 @@ public class StreakController {
     }
 
     @Operation(summary = "Patch a streak (currentStreak, longestStreak, lastActiveDate, freezeCount)",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"currentStreak": 3, "longestStreak": 5, "lastActiveDate": "2026-10-25", "freezeCount": 1}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "200", description = "Streak patched"),
                             @ApiResponse(responseCode = "404", description = "Streak not found")})
     @PatchMapping("/{id}")

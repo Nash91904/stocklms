@@ -71,6 +71,12 @@ public class LessonController {
     }
 
     @Operation(summary = "Full update of a lesson",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"title": "string", "content": "string", "unlockCondition": "MIN_LITERACY_30"}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "200", description = "Lesson updated"),
                             @ApiResponse(responseCode = "404", description = "Lesson not found"),
                             @ApiResponse(responseCode = "400", description = "Validation failure")})

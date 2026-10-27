@@ -50,11 +50,11 @@ The **Stock Market Trainer & Wealth Growth LMS** is a full-stack learning platfo
 ### In Scope
 - **Simulated Trading:** Virtual currency execution of buy and sell orders on equities.
 - **Automated Price Tracking:** Historical price storage and tracking for selected stock tickers.
-- **Behavioral Profiling:** Algorithmic calculation of risk profile and literacy score without questionnaires.
+- **Behavioral Profiling:** Algorithmic calculation of risk profile and literacy score without questionnaires. *(Partly implemented, see Section 6.)*
 - **Educational Content:** Lesson catalog, quiz attempt tracking, and conditional lesson unlocking.
 - **Gamification Mechanics:** Daily streak tracking, streak freeze safeguards, and milestone achievement badges.
 - **Clean Relational Persistence:** PostgreSQL database storage with relational schema integrity.
-- **DTO Layer:** Strict boundary separation between JPA entities and client response/request payloads.
+- **Standard Response Envelope:** Every endpoint returns a uniform `ResponseBean` (`errorCode`, `errorDesc`, `data`) that wraps the entity, a list, or the error details.
 
 ### Out of Scope
 - **Real Money Transactions:** No real brokerage APIs, payment gateways, or actual financial deposits/withdrawals.
@@ -85,6 +85,21 @@ The **Stock Market Trainer & Wealth Growth LMS** is a full-stack learning platfo
 
 ## 5. Non-Functional Requirements (NFR)
 - **Data Integrity:** Trade logs and price history snapshots must be immutable (no update or delete operations permitted).
-- **Simplicity & Maintainability:** The architecture follows standard Spring Boot conventions (Controller -> Service -> Repository -> Entity) with clear, beginner-readable code.
+- **Simplicity & Maintainability:** The architecture is a simple layered structure (Controller -> Repository -> Entity) with a global exception handler and a standard `ResponseBean` envelope, written as clear, beginner-readable code.
 - **Robustness:** Database schema constraints (foreign keys, nullability, unique keys, positive amounts) must be strictly enforced at both database and JPA entity levels.
 - **Security Baseline:** Passwords must be stored hashed. No secrets or credentials hardcoded; database credentials configured via environment variables.
+
+---
+
+## 6. Implementation Status (FSD PBL Submission)
+
+This document describes the full planned platform. The table below states what the current backend implements, so the scope of this submission is clear.
+
+| Module | Status | What exists in the code |
+|---|---|---|
+| 2.1 User & Account Management | Done | Registration with a BCrypt-hashed password, profile CRUD, risk profile and literacy score fields. No login or JWT in this phase (see 2.1). |
+| 2.2 Market Data & Ingestion | Partly done | Stocks and an insert-only price history, exposed through REST APIs (`POST /api/price-history`). Automatic ingestion from a live market-data API is planned. |
+| 2.3 Trading & Portfolio Simulator | Done | BUY and SELL orders at the latest recorded price with cash and holdings checks, the portfolio balance updated in the same transaction, and an insert-only trade ledger. |
+| 2.4 Behavioral Inference Engine | Planned (basic version in place) | The literacy score rises by 20 (capped at 100) on a user's first passing quiz attempt (score of 70 or more) on a lesson. The risk profile is a stored value set through the API; calculating it automatically from trade history is planned. |
+| 2.5 Learning Management System | Done | Lesson CRUD, quiz attempts (score 0-100), and `MIN_LITERACY_<n>` unlock conditions enforced when a quiz attempt is recorded. |
+| 2.6 Gamification & Engagement | Mostly done | The streak updates automatically on every quiz attempt and trade. Badges `FIRST_QUIZ`, `FIRST_TRADE` and `STREAK_3` are awarded automatically, and badges can also be awarded through the API. The freeze count is stored but not yet applied. Leaderboards are planned. |

@@ -84,6 +84,12 @@ public class StockController {
     }
 
     @Operation(summary = "Full update of a stock",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"ticker": "string", "name": "string", "sector": "string"}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "200", description = "Stock updated"),
                             @ApiResponse(responseCode = "404", description = "Stock not found"),
                             @ApiResponse(responseCode = "400", description = "Validation or business rule failure")})

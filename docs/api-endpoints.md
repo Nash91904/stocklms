@@ -120,8 +120,10 @@ Every endpoint produces a `ResponseBean` containing:
 | **GET** | `/api/trades?userId={userId}` | _None_ | `200 OK` / `404` | Retrieve user trade history by query param |
 | **POST** | `/api/quiz-attempts` | `QuizAttempt` | `201 Created` / `404` / `400` | Record a user's quiz attempt and score |
 | **GET** | `/api/quiz-attempts/user/{userId}` | _None_ | `200 OK` / `404` | Retrieve all quiz attempts for a user |
+| **GET** | `/api/quiz-attempts?userId={userId}` | _None_ | `200 OK` / `400` / `404` | Retrieve quiz attempts for a user by query param (400 if `userId` is missing) |
 | **POST** | `/api/badges` | `Badge` | `201 Created` / `404` / `400` | Award an achievement badge to a user |
 | **GET** | `/api/badges/user/{userId}` | _None_ | `200 OK` / `404` | Retrieve all badges awarded to a user |
+| **GET** | `/api/badges?userId={userId}` | _None_ | `200 OK` / `400` / `404` | Retrieve badges for a user by query param (400 if `userId` is missing) |
 
 ---
 

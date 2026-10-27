@@ -50,6 +50,12 @@ public class PortfolioController {
     }
 
     @Operation(summary = "Patch a portfolio (update cashBalance)",
+               requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(
+                       mediaType = "application/json",
+                       examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+                               {"cashBalance": 100000}
+                               """)
+               )),
                responses = {@ApiResponse(responseCode = "200", description = "Portfolio patched"),
                             @ApiResponse(responseCode = "404", description = "Portfolio not found"),
                             @ApiResponse(responseCode = "400", description = "Negative cash balance not allowed")})
