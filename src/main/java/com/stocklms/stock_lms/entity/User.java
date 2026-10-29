@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -33,6 +34,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // User's full name (optional, max 100 characters)
+    @Size(max = 100, message = "Name cannot exceed 100 characters")
+    @Column(length = 100)
+    private String name;
+
     // Unique user email for identification and login
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be a valid email address")
@@ -51,6 +57,8 @@ public class User {
     private String password;
 
     // Inferred risk profile (e.g. CONSERVATIVE, MODERATE, AGGRESSIVE)
+    @Pattern(regexp = "CONSERVATIVE|MODERATE|AGGRESSIVE", flags = Pattern.Flag.CASE_INSENSITIVE,
+    message = "Risk profile must be CONSERVATIVE, MODERATE or AGGRESSIVE")
     @Column(name = "risk_profile", length = 50)
     private String riskProfile;
 

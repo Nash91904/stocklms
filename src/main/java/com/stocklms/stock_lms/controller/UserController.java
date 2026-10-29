@@ -66,7 +66,7 @@ public class UserController {
     }
 
     @Operation(summary = "Register a new user (also creates Portfolio and Streak)", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
-            {"email": "user@example.com", "password": "string", "riskProfile": "string"}
+            {"name": "string", "email": "user@example.com", "password": "string", "riskProfile": "MODERATE"}
             """))), responses = {
             @ApiResponse(responseCode = "201", description = "User created"),
             @ApiResponse(responseCode = "400", description = "Email already in use or validation failure") })
@@ -88,9 +88,10 @@ public class UserController {
         String hashedPassword = passwordEncoder.encode(user.getPassword());
 
         User newUser = User.builder()
+                .name(user.getName() != null ? user.getName().trim() : null)
                 .email(emailClean)
                 .passwordHash(hashedPassword)
-                .riskProfile(user.getRiskProfile() != null ? user.getRiskProfile().trim() : null)
+                .riskProfile(user.getRiskProfile() != null ? user.getRiskProfile().trim().toUpperCase() : null)
                 .literacyScore(user.getLiteracyScore() != null ? user.getLiteracyScore() : 0)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -119,7 +120,7 @@ public class UserController {
     }
 
     @Operation(summary = "Full update of a user profile", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
-            {"email": "user@example.com", "password": "string", "riskProfile": "string", "literacyScore": 0}
+            {"name": "string", "email": "user@example.com", "password": "string", "riskProfile": "MODERATE", "literacyScore": 0}
             """))), responses = {
             @ApiResponse(responseCode = "200", description = "User updated"),
             @ApiResponse(responseCode = "404", description = "User not found"),
@@ -137,11 +138,12 @@ public class UserController {
             throw new BusinessRuleException("Email already in use: " + emailClean);
         }
 
+        existing.setName(user.getName() != null ? user.getName().trim() : null);
         existing.setEmail(emailClean);
         if (user.getPassword() != null && !user.getPassword().isBlank()) {
             existing.setPasswordHash(passwordEncoder.encode(user.getPassword()));
         }
-        existing.setRiskProfile(user.getRiskProfile() != null ? user.getRiskProfile().trim() : null);
+        existing.setRiskProfile(user.getRiskProfile() != null ? user.getRiskProfile().trim().toUpperCase() : null);
         existing.setLiteracyScore(user.getLiteracyScore() != null ? user.getLiteracyScore() : 0);
 
         User saved = userRepository.save(existing);
@@ -149,11 +151,12 @@ public class UserController {
         return ResponseEntity.ok(ResponseBean.success("200", "Success", saved));
     }
 
-    @Operation(summary = "Partial update of user (riskProfile, literacyScore)", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
-            {"riskProfile": "string", "literacyScore": 0}
+    @Operation(summary = "Partial update of user (name, riskProfile, literacyScore). Send only the fields you want to change.", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = """
+            {"name": "string", "riskProfile": "MODERATE", "literacyScore": 0}
             """))), responses = {
             @ApiResponse(responseCode = "200", description = "User patched"),
-            @ApiResponse(responseCode = "404", description = "User not found") })
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "400", description = "Invalid risk profile or literacy score") })
     @PatchMapping("/{id}")
     @Transactional
     public ResponseEntity<ResponseBean> patchUser(@PathVariable Long id, @RequestBody User user) {
@@ -161,8 +164,15 @@ public class UserController {
         User existing = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
+        if (user.getName() != null) {
+            existing.setName(user.getName().trim());
+        }
         if (user.getRiskProfile() != null) {
-            existing.setRiskProfile(user.getRiskProfile().trim());
+            String rp = user.getRiskProfile().trim().toUpperCase();
+            if (!rp.matches("CONSERVATIVE|MODERATE|AGGRESSIVE")) {
+                throw new BusinessRuleException("Risk profile must be CONSERVATIVE, MODERATE or AGGRESSIVE");
+            }
+            existing.setRiskProfile(rp);
         }
         if (user.getLiteracyScore() != null) {
             if (user.getLiteracyScore() < 0) {

@@ -122,6 +122,7 @@ public class DataSeeder implements CommandLineRunner {
         log.info("Seeding demo user with default portfolio and streak...");
 
         User demoUser = User.builder()
+                .name("Demo User")
                 .email("demo@stocklms.com")
                 .passwordHash(passwordEncoder.encode("password123"))
                 .riskProfile("MODERATE")
