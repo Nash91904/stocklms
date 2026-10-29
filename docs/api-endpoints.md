@@ -98,9 +98,9 @@ Every endpoint produces a `ResponseBean` containing:
 | **DELETE** | `/api/lessons/{id}` | _None_ | `200 OK` / `404` | Delete a lesson by ID |
 | **GET** | `/api/users` | _None_ | `200 OK` | Retrieve all users (`passwordHash` excluded via `@JsonIgnore`) |
 | **GET** | `/api/users/{id}` | _None_ | `200 OK` / `404` | Retrieve a user by ID |
-| **POST** | `/api/users` | `User` (with `password`) | `201 Created` / `400` | Register user (hashes password with BCrypt; provisions initial Portfolio with $100,000 and zeroed Streak) |
-| **PUT** | `/api/users/{id}` | `User` | `200 OK` / `404` / `400` | Full update of user account |
-| **PATCH** | `/api/users/{id}` | `User` (partial fields) | `200 OK` / `404` / `400` | Partial update of user (`riskProfile`, `literacyScore`) |
+| **POST** | `/api/users` | `User` (with `password`, optional `name`) | `201 Created` / `400` | Register user (hashes password with BCrypt; provisions initial Portfolio with $100,000 and zeroed Streak). `riskProfile` must be `CONSERVATIVE`, `MODERATE` or `AGGRESSIVE` |
+| **PUT** | `/api/users/{id}` | `User` | `200 OK` / `404` / `400` | Full update of user account (`name`, `email`, `password`, `riskProfile`, `literacyScore`) |
+| **PATCH** | `/api/users/{id}` | `User` (partial fields) | `200 OK` / `404` / `400` | Partial update of user (`name`, `riskProfile`, `literacyScore`). Send only the fields you want to change; `riskProfile` must be `CONSERVATIVE`, `MODERATE` or `AGGRESSIVE` (400 otherwise) |
 | **DELETE** | `/api/users/{id}` | _None_ | `200 OK` / `404` / `409` | Delete user, portfolio, streak, watchlist links, quiz attempts, and badges (409 if user has trades) |
 | **POST** | `/api/users/{userId}/watchlist/{stockId}` | _None_ | `201 Created` / `404` / `409` | Add a stock to user's watchlist (409 if already in watchlist) |
 | **DELETE** | `/api/users/{userId}/watchlist/{stockId}` | _None_ | `200 OK` / `404` | Remove a stock from user's watchlist |
@@ -133,12 +133,22 @@ Every endpoint produces a `ResponseBean` containing:
 ### Register User (`POST /api/users`)
 ```json
 {
+  "name": "Alex Trader",
   "email": "trader@stocklms.com",
   "password": "securePassword123",
   "riskProfile": "MODERATE",
   "literacyScore": 50
 }
 ```
+`name` is optional (maximum 100 characters). `email` is the unique identity of the account. `riskProfile` is stored in uppercase and must be one of `CONSERVATIVE`, `MODERATE` or `AGGRESSIVE`.
+
+### Partial Update User (`PATCH /api/users/1`)
+```json
+{
+  "riskProfile": "AGGRESSIVE"
+}
+```
+Only the fields that are sent are changed; the other fields keep their current values.
 
 ### Create Stock (`POST /api/stocks`)
 ```json

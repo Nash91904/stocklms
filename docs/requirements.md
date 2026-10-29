@@ -15,7 +15,7 @@ The **Stock Market Trainer & Wealth Growth LMS** is a full-stack learning platfo
 
 ### 2.1 User & Account Management Module
 - Manages user registration, profiles, and credentials.
-- Tracks account creation timestamp, risk profile classification, and financial literacy score.
+- Tracks an optional display name, account creation timestamp, risk profile classification (CONSERVATIVE, MODERATE or AGGRESSIVE), and financial literacy score.
 - Excludes Spring Security/JWT in early phases to focus on core domain modeling and PBL clarity.
 
 ### 2.2 Market Data & Ingestion Module
@@ -69,7 +69,7 @@ The **Stock Market Trainer & Wealth Growth LMS** is a full-stack learning platfo
 
 | ID | Module | Requirement Description | Priority |
 |---|---|---|---|
-| **FR-1.1** | User Management | System shall register new users with unique email addresses and hashed passwords. | High |
+| **FR-1.1** | User Management | System shall register new users with a unique email address, a hashed password and an optional display name. | High |
 | **FR-1.2** | User Management | System shall initialize each new user with a default portfolio cash balance and a streak tracker. | High |
 | **FR-2.1** | Market Data | System shall store stock metadata (ticker, name, sector) with unique ticker enforcement. | High |
 | **FR-2.2** | Market Data | System shall log historical prices and volumes per stock in an immutable audit table. | High |
@@ -97,7 +97,7 @@ This document describes the full planned platform. The table below states what t
 
 | Module | Status | What exists in the code |
 |---|---|---|
-| 2.1 User & Account Management | Done | Registration with a BCrypt-hashed password, profile CRUD, risk profile and literacy score fields. No login or JWT in this phase (see 2.1). |
+| 2.1 User & Account Management | Done | Registration with a BCrypt-hashed password, profile CRUD (create, read, full update, partial update, delete), an optional name, a risk profile validated as CONSERVATIVE, MODERATE or AGGRESSIVE, and a literacy score. Email is the unique identity. No login or JWT in this phase (see 2.1). |
 | 2.2 Market Data & Ingestion | Partly done | Stocks and an insert-only price history, exposed through REST APIs (`POST /api/price-history`). Automatic ingestion from a live market-data API is planned. |
 | 2.3 Trading & Portfolio Simulator | Done | BUY and SELL orders at the latest recorded price with cash and holdings checks, the portfolio balance updated in the same transaction, and an insert-only trade ledger. |
 | 2.4 Behavioral Inference Engine | Planned (basic version in place) | The literacy score rises by 20 (capped at 100) on a user's first passing quiz attempt (score of 70 or more) on a lesson. The risk profile is a stored value set through the API; calculating it automatically from trade history is planned. |

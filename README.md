@@ -8,7 +8,7 @@ A Spring Boot REST backend for paper trading and financial learning. Users pract
 
 | Area | Features |
 |---|---|
-| Users | Registration with a BCrypt-hashed password, profile updates, risk profile and literacy score. Registering a user also creates their portfolio ($100,000 starting cash) and a streak tracker. |
+| Users | Registration with a unique email, an optional name and a BCrypt-hashed password, profile updates, risk profile (`CONSERVATIVE`, `MODERATE` or `AGGRESSIVE`) and literacy score. Registering a user also creates their portfolio ($100,000 starting cash) and a streak tracker. |
 | Market data | Stocks and an insert-only price history. |
 | Trading | BUY and SELL orders at the latest recorded price, with cash and holdings checks. Trades are stored in an insert-only ledger. |
 | Learning | Lessons with unlock conditions (for example `MIN_LITERACY_20`) and quiz attempts scored 0-100. A first pass (70 or more) on a lesson raises the literacy score by 20, up to 100. |
@@ -65,7 +65,7 @@ Nine entities (User, Portfolio, Streak, Stock, PriceHistory, Trade, Lesson, Quiz
 | `DB_USERNAME` | `postgres` | optional |
 | `DB_PASSWORD` | none | **required**, the PostgreSQL password. The application does not start without it |
 
-Tables are created automatically on first start (`spring.jpa.hibernate.ddl-auto=update`). On an empty database the app also seeds 10 US stocks with a baseline price each, 3 lessons, and a demo user (`demo@stocklms.com`) with a $100,000 portfolio, a streak tracker and AAPL on the watchlist.
+Tables are created automatically on first start (`spring.jpa.hibernate.ddl-auto=update`). On an empty database the app also seeds 10 US stocks with a baseline price each, 3 lessons, and a demo user (`demo@stocklms.com`, named "Demo User") with a $100,000 portfolio, a streak tracker and AAPL on the watchlist.
 
 ### Run
 
